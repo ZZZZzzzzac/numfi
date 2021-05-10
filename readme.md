@@ -1,1 +1,1 @@
-numpy based fixed-point ndarray
+a numpy.ndarray subclass for fixed-point

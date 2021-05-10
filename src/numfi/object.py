@@ -18,10 +18,10 @@ class numfi(np.ndarray):
         return ndarray
 
     def resize(self, signed, w, f, quantize=True):
-        self.signed = signed
+        self.signed = bool(signed) # false signed = 0/false/None/''/[]
         self.w = w
         self.f = f
-        self.i = w-f
+        self.i = self.w-self.f-self.signed
         if self.w < self.f:
             raise ValueError("fraction length > word length is not support")
         self.precision = 2**-self.f
@@ -30,7 +30,7 @@ class numfi(np.ndarray):
         self.lower = -2**(self.w-self.f-1) if self.signed else 0    
         
         if quantize:
-            self[...] = self # note this will call __setitem__, and then call __setitem__(..., self.quantize(self))
+            self[...] = self # note this will call `__setitem__`, and then call `self.quantize(self)` inside `__setitem__`
         return self
 
     def quantize(self, value):
@@ -110,52 +110,57 @@ class numfi(np.ndarray):
         return numfi(super().__neg__(), like=self)
     def __pos__(self):
         return self    
-    def __arithmeticADD__(self, func, y):
+    # arithmetic overloading helper
+    def __arithmeticADDSUB__(self, func, y):
         y = y if isinstance(y, numfi) else numfi(y, like=self)
         if self.fixed:
-            return numfi(func(y.ndarray),like=self)            
+            return numfi(func(y.ndarray),like=self)
+        elif y.fixed:
+            return numfi(func(y.ndarray),like=y)            
         else:
             i = max(self.i, y.i)
             f = max(self.f, y.f)
-            return numfi(func(y.ndarray), self.signed|y.signed, i+f+1, f, None, False, **self.kwargs)         
-    def __arithmeticMUL__(self, func, y):
+            signed = self.signed|y.signed
+            return numfi(func(y.ndarray), signed, i+f+signed+1, f, None, False, **self.kwargs)         
+    def __arithmeticMULDIV__(self, func, y):
         y = y if isinstance(y, numfi) else numfi(y, like=self)
         if self.fixed:
             return numfi(func(y.ndarray), like=self)
+        elif y.fixed:
+            return numfi(func(y.ndarray), like=y)
         else:
             return numfi(func(y.ndarray), self.signed|y.signed, self.w+y.w, self.f+y.f, None, False, **self.kwargs) 
     # arithmetic
-    __add__         = lambda self,y: self.__arithmeticADD__(super().__add__, y)
-    __radd__        = lambda self,y: self.__arithmeticADD__(super().__radd__, y)
-    __iadd__        = lambda self,y: self.__arithmeticADD__(super().__iadd__, y)
-    __sub__         = lambda self,y: self.__arithmeticADD__(super().__sub__, y)
-    __rsub__        = lambda self,y: self.__arithmeticADD__(super().__rsub__, y)
-    __isub__        = lambda self,y: self.__arithmeticADD__(super().__isub__, y)
-    __mul__         = lambda self,y: self.__arithmeticMUL__(super().__mul__, y)
-    __rmul__        = lambda self,y: self.__arithmeticMUL__(super().__rmul__, y)
-    __imul__        = lambda self,y: self.__arithmeticMUL__(super().__imul__, y)
-    __truediv__     = lambda self,y: self.__arithmeticMUL__(super().__truediv__, y)
-    __rtruediv__    = lambda self,y: self.__arithmeticMUL__(super().__rtruediv__, y)
-    __itruediv__    = lambda self,y: self.__arithmeticMUL__(super().__itruediv__, y)
-    __floordiv__    = lambda self,y: self.__arithmeticMUL__(super().__floordiv__, y)
-    __rfloordiv__   = lambda self,y: self.__arithmeticMUL__(super().__rfloordiv__, y)
-    __ifloordiv__   = lambda self,y: self.__arithmeticMUL__(super().__ifloordiv__, y)
+    __add__         = lambda self,y: self.__arithmeticADDSUB__(super().__add__, y)
+    __radd__        = lambda self,y: self.__arithmeticADDSUB__(super().__radd__, y)
+    __iadd__        = lambda self,y: self.__arithmeticADDSUB__(super().__iadd__, y)
+    __sub__         = lambda self,y: self.__arithmeticADDSUB__(super().__sub__, y)
+    __rsub__        = lambda self,y: self.__arithmeticADDSUB__(super().__rsub__, y)
+    __isub__        = lambda self,y: self.__arithmeticADDSUB__(super().__isub__, y)
+    __mul__         = lambda self,y: self.__arithmeticMULDIV__(super().__mul__, y)
+    __rmul__        = lambda self,y: self.__arithmeticMULDIV__(super().__rmul__, y)
+    __imul__        = lambda self,y: self.__arithmeticMULDIV__(super().__imul__, y)
+    __truediv__     = lambda self,y: self.__arithmeticMULDIV__(super().__truediv__, y)
+    __rtruediv__    = lambda self,y: self.__arithmeticMULDIV__(super().__rtruediv__, y)
+    __itruediv__    = lambda self,y: self.__arithmeticMULDIV__(super().__itruediv__, y)
+    __floordiv__    = lambda self,y: self.__arithmeticMULDIV__(super().__floordiv__, y)
+    __rfloordiv__   = lambda self,y: self.__arithmeticMULDIV__(super().__rfloordiv__, y)
+    __ifloordiv__   = lambda self,y: self.__arithmeticMULDIV__(super().__ifloordiv__, y)
     #TODO: more advance operation? (shift expand/quantize of logical operation)
-    __mod__         = lambda self,y: numfi(super().__mod__(y.view(np.ndarray)), like=self)
-    __lshift__      = lambda self,y: numfi(super().__lshift__(y.view(np.ndarray)), like=self)
-    __rshift__      = lambda self,y: numfi(super().__rshift__(y.view(np.ndarray)), like=self)
-    __and__         = lambda self,y: numfi(super().__and__(y.view(np.ndarray)), like=self) 
-    __or__          = lambda self,y: numfi(super().__or__(y.view(np.ndarray)), like=self) 
-    __xor__         = lambda self,y: numfi(super().__xor__(y.view(np.ndarray)), like=self) 
-    __invert__      = lambda self,y: numfi(super().__invert__(y.view(np.ndarray)), like=self)
+    __mod__         = lambda self,y: numfi(super().__mod__(y.ndarray), like=self)
+    __lshift__      = lambda self,y: numfi(super().__lshift__(y.ndarray), like=self)
+    __rshift__      = lambda self,y: numfi(super().__rshift__(y.ndarray), like=self)
+    __and__         = lambda self,y: numfi(super().__and__(y.ndarray), like=self) 
+    __or__          = lambda self,y: numfi(super().__or__(y.ndarray), like=self) 
+    __xor__         = lambda self,y: numfi(super().__xor__(y.ndarray), like=self) 
+    __invert__      = lambda self,y: numfi(super().__invert__(y.ndarray), like=self)
     # comparison
-    __eq__ = lambda self,y: self.ndarray == y
-    __ne__ = lambda self,y: self.ndarray != y
-    __ge__ = lambda self,y: self.ndarray >= y
-    __gt__ = lambda self,y: self.ndarray >  y
-    __le__ = lambda self,y: self.ndarray <= y
-    __lt__ = lambda self,y: self.ndarray <  y
-    #TODO: casting
+    __eq__          = lambda self,y: self.ndarray == y
+    __ne__          = lambda self,y: self.ndarray != y
+    __ge__          = lambda self,y: self.ndarray >= y
+    __gt__          = lambda self,y: self.ndarray >  y
+    __le__          = lambda self,y: self.ndarray <= y
+    __lt__          = lambda self,y: self.ndarray <  y
 
 
 
