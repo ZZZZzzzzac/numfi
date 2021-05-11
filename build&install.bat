@@ -1,2 +1,2 @@
-python -m build -w &&^
-python -m pip install numfi -U --find-links=./dist
+python setup.py bdist_wheel &&^
+python -m pip install numfi --upgrade --force-reinstall --find-links=./dist

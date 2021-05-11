@@ -147,7 +147,7 @@ class numfi(np.ndarray):
 
     def __arithmeticM__(self, func, y):
         y = y if isinstance(y, numfi) else numfi(y, like=self)
-        result = numfi(func(y), self.s|y.s, self.w+y.w, self.f+y.f, like=self)
+        result = numfi(func(y).view(np.ndarray), self.s|y.s, self.w+y.w, self.f+y.f, like=self) # TODO: mul/div need quantize
         if self.fixed:
             return numfi(result, like=self)
         elif y.fixed:

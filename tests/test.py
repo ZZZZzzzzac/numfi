@@ -1,5 +1,6 @@
 import unittest
-from .numfi import np,numfi
+import numpy as np
+from numfi import *
 
 class numfiTest(unittest.TestCase):
     def test_create_numfi(self):        
@@ -13,7 +14,7 @@ class numfiTest(unittest.TestCase):
 
     def test_swf(self):
         x = numfi(np.pi,1,16,8)
-        self.assertEqual(x.signed, 1)
+        self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
         self.assertRaises(ValueError, lambda:numfi(np.pi,1,8,9))
@@ -23,7 +24,7 @@ class numfiTest(unittest.TestCase):
         x = numfi([1,2,3,4], like=T)
         self.assertEqual(x.w, T.w)
         self.assertEqual(x.f, T.f)
-        self.assertEqual(x.signed, T.signed)
+        self.assertEqual(x.s, T.s)
         self.assertEqual(x.rounding, T.rounding)
         self.assertEqual(x.overflow, T.overflow)
         self.assertEqual(x.fixed, T.fixed)
@@ -81,12 +82,12 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x_plus_256.f, 8)
 
         z = x + numfi(np.pi,0,14,11)
-        self.assertEqual(z.signed, 1)
+        self.assertEqual(z.s, 1)
         self.assertEqual(z.w, 20)
         self.assertEqual(z.f, 11)
 
         q = x + numfi(np.pi,1,14,11)
-        self.assertEqual(q.signed, 1)
+        self.assertEqual(q.s, 1)
         self.assertEqual(q.w, 20)
         self.assertEqual(q.f, 11)
 
@@ -96,5 +97,76 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.w, 17)
         self.assertEqual(x.f, 8)
 
-        
+        y = 3 - numfi([1,2,3,4],1,16,8)
+        self.assertTrue(np.all(y==[2,1,0,-1]))
+        self.assertEqual(y.s, 1)
+        self.assertEqual(y.w, 17)
+        self.assertEqual(y.f, 8)
+
+    def test_fixed_A(self):
+        x = numfi([1,2,3,4],1,16,8,fixed=True)
+        y = numfi([2,3,4,5],1,17,9,fixed=True)
+        z = numfi(0,1,12,4)
+
+        x1 = x+1
+        self.assertEqual(x1.s, x.s)
+        self.assertEqual(x1.w, x.w)
+        self.assertEqual(x1.f, x.f)
+
+        xy = x+y
+        self.assertEqual(xy.s, x.s)
+        self.assertEqual(xy.w, x.w)
+        self.assertEqual(xy.f, x.f)
+
+        y1 = 1+y
+        self.assertEqual(y1.s, y.s)
+        self.assertEqual(y1.w, y.w)
+        self.assertEqual(y1.f, y.f)
+
+        xz = x-z 
+        self.assertEqual(xz.s, x.s)
+        self.assertEqual(xz.w, x.w)
+        self.assertEqual(xz.f, x.f)
+
+    def test_mul(self):
+        q = [0.814723686393179,0.905791937075619,0.126986816293506]
+        a = numfi(q,1,16,8)
+        a3 = a * 3
+        self.assertTrue(np.all(a3==[2.449218750000000 , 2.718750000000000, 0.386718750000000]))
+        self.assertEqual(a3.s, 1)
+        self.assertEqual(a3.w, 32)
+        self.assertEqual(a3.f, 16) # note this is different than matlab
+
+        aa = a*numfi(q,1,8,4)
+        self.assertEqual(aa.w, 24)
+        self.assertEqual(aa.f, 12)
+
+    def test_div(self):
+        q = [0.814723686393179,0.905791937075619,0.126986816293506]
+        a = numfi(q,1,7,4)
+        a3 = a / 1.3333
+
+        self.assertEqual(a3.s, 1)
+        self.assertEqual(a3.w, 14)
+        self.assertEqual(a3.f, 8) # note this is different than matlab
+
+        aa = a/numfi(q,1,8,4)
+        self.assertEqual(aa.w, 15)
+        self.assertEqual(aa.f, 8)
+
+    def test_i(self):
+        x = numfi([1,2,3],1,15,6)
+        before = x.ctypes.data
+        x += 1
+        after = x.ctypes.data
+        self.assertEqual(before, after)
+        x -= 2
+        after = x.ctypes.data
+        self.assertEqual(before, after)
+        x *= 3
+        after = x.ctypes.data
+        self.assertEqual(before, after)
+        x /= 4
+        after = x.ctypes.data
+        self.assertEqual(before, after)
         
