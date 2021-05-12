@@ -13,7 +13,9 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
     flag = (array.f>n_frac) or (array.upper>upper) or (array.lower<lower) if isinstance(array, numfi) else True
     # array.f > n_frac means we will lost precision, so quantize is needed
     # new bound is smaller than array's bound, overflow may happen
-    array = np.asarray(array)    
+    array = np.asarray(array)
+    if np.issubdtype(array.dtype,np.integer):
+        array = array.astype(np.float64)
     array = array.reshape(1,) if array.shape == () else array # single value will be convert to (1,) array to allow index
 
     if flag:
@@ -31,9 +33,9 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
             array_int &= (m-1)
             if signed:
                 array_int[array_int>=(1<<(n_word-1))] |= (-m)
-            array = array_int * (2 ** -n_frac)
-        elif overflow == 'saturate': # worst 4n, best 2n
-            array = array_int * (2 ** -n_frac)
+            array[...] = array_int * (2 ** -n_frac)
+        elif overflow == 'saturate': # worst 4n, best 2n 
+            array[...] = array_int * (2 ** -n_frac) # [...] to use same memory
             array[array>upper] = upper
             array[array<lower] = lower
         else:
@@ -146,8 +148,8 @@ class numfi(np.ndarray):
     __isub__        = lambda self,y: self.__arithmeticA__(super().__isub__, y)
 
     def __arithmeticM__(self, func, y):
-        y = y if isinstance(y, numfi) else numfi(y, like=self)
-        result = numfi(func(y).view(np.ndarray), self.s|y.s, self.w+y.w, self.f+y.f, like=self) # TODO: mul/div need quantize
+        y = y if isinstance(y, numfi) else numfi(y, like=self) #TODO: when y is not numfi, should we numfi it first?
+        result = numfi(func(y).view(np.ndarray), self.s|y.s, self.w+y.w, self.f+y.f, like=self)
         if self.fixed:
             return numfi(result, like=self)
         elif y.fixed:

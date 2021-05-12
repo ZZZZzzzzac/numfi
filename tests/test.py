@@ -143,16 +143,21 @@ class numfiTest(unittest.TestCase):
 
     def test_div(self):
         q = [0.814723686393179,0.905791937075619,0.126986816293506]
-        a = numfi(q,1,7,4)
-        a3 = a / 1.3333
-
+        a = numfi(q,1,16,8)
+        a3 = a / 0.3333        
         self.assertEqual(a3.s, 1)
-        self.assertEqual(a3.w, 14)
-        self.assertEqual(a3.f, 8) # note this is different than matlab
+        self.assertEqual(a3.w, 32)
+        self.assertEqual(a3.f, 16) # note this is different than matlab
 
         aa = a/numfi(q,1,8,4)
-        self.assertEqual(aa.w, 15)
-        self.assertEqual(aa.f, 8)
+        self.assertEqual(aa.w, 24)
+        self.assertEqual(aa.f, 12)
+
+    def test_fixed_M(self):
+        q = [0.814723686393179,0.905791937075619,0.126986816293506]
+        a = numfi(q,1,16,8,fixed=True)
+        a3 = a / 0.3333
+        self.assertTrue(np.all(a3==[ 2.457031250000000  , 2.730468750000000  , 0.386718750000000]))
 
     def test_i(self):
         x = numfi([1,2,3],1,15,6)

@@ -1,7 +1,6 @@
 from refactor import *
 
 if __name__ == '__main__':
-    q = np.random.rand(3,2)
-    s,w,f = 0,11,7
-    x = numfi(q.copy(), s,w,f,fixed=True)
-    y = x * 1.0123
+    x = numfi([1,2,3,4],1,16,8)
+    x_plus_256 = x + np.int64([256])
+    print('d')
