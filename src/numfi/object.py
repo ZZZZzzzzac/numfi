@@ -22,9 +22,9 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
         # quantize method
         array_int = array * (2**n_frac) 
         if rounding == 'round':
-            array_int = np.round(array_int).astype(int) # TODO: this is slow, any idea?
+            array_int = np.round(array_int).astype(np.int64) # TODO: this is slow, any idea?
         elif rounding == 'floor':
-            array_int = np.floor(array_int).astype(int)
+            array_int = np.floor(array_int).astype(np.int64) 
         else:
             raise ValueError(f"invaild rounding method: {rounding}")
         # overflow method
@@ -77,6 +77,8 @@ class numfi(np.ndarray):
         self.fixed = getattr(obj, 'fixed', False)
         if self.w < self.f:
             raise ValueError("fraction length > word length is not support")
+        if self.f >= 64: # NOTE: this will hit np.int64 bound
+            raise ValueError("fraction length too large")
     #endregion initialization
     #region property
     @property
@@ -119,7 +121,7 @@ class numfi(np.ndarray):
     #region overload operators
     def __repr__(self):
         signed = 's' if self.s else 'u'
-        return f'numfi-{signed}{self.w}/{self.f}: \n' + self.ndarray.__repr__() 
+        return f'numfi-{signed}{self.w}/{self.f}: ' + self.ndarray.__repr__()  # TODO: pretty print
     def __getitem__(self,key):
         item = super().__getitem__(key) # return numfi with shape (1,) instead of single value
         return item if isinstance(item, numfi) else numfi(item, like=self)
@@ -147,7 +149,7 @@ class numfi(np.ndarray):
     __rsub__        = lambda self,y: self.__arithmeticA__(super().__rsub__, y)
     __isub__        = lambda self,y: self.__arithmeticA__(super().__isub__, y)
 
-    def __arithmeticM__(self, func, y):
+    def __arithmeticM__(self, func, y): # FIXME: numfi([1,2,3],1,32,16) * np.array([1,2,3]) = [-0.5,-0.5,-0.5], why?
         y = y if isinstance(y, numfi) else numfi(y, like=self) #TODO: when y is not numfi, should we numfi it first?
         result = numfi(func(y).view(np.ndarray), self.s|y.s, self.w+y.w, self.f+y.f, like=self)
         if self.fixed:

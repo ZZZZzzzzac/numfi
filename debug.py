@@ -1,6 +1,7 @@
-from refactor import *
+import numpy as np
+from refact import *
 
 if __name__ == '__main__':
-    x = numfi([1,2,3,4],1,16,8)
-    x_plus_256 = x + np.int64([256])
+    x = numfi([1,2,3,4],1,32,16)
+    y = x * np.array([1,2,3,4])
     print('d')
