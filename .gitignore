@@ -2,6 +2,7 @@
 __pycache__
 build
 dist
+*.ipynb
 *.egg-info
 refact.py
 build&install.bat
