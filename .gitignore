@@ -4,3 +4,5 @@ build
 dist
 *.egg-info
 refact.py
+build&install.bat
+unittest.bat

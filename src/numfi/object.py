@@ -5,9 +5,12 @@
 #########################
 
 import numpy as np 
+import warnings
 
 def quantize(array, signed, n_word, n_frac, rounding, overflow):    
     """TODO: docstring""" 
+    if n_frac > 32:
+        warnings.warn(f"n_frac={n_frac} is very large and may overflow during quantize")
     upper = 2**(n_word-n_frac-bool(signed)) - (2 ** -n_frac)
     lower = -2**(n_word-n_frac-1) if signed else 0 
     flag = (array.f>n_frac) or (array.upper>upper) or (array.lower<lower) if isinstance(array, numfi) else True
@@ -22,7 +25,7 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
         # quantize method
         array_int = array * (2**n_frac) 
         if rounding == 'round':
-            array_int = np.round(array_int).astype(np.int64) # TODO: this is slow, any idea?
+            array_int = np.round(array_int).astype(np.int64) # TODO: this is slow, any better idea?
         elif rounding == 'floor':
             array_int = np.floor(array_int).astype(np.int64) 
         else:
@@ -86,7 +89,7 @@ class numfi(np.ndarray):
         return self.view(np.ndarray)
     @property
     def int(self):
-        return (self.ndarray * 2**self.f).astype(int)
+        return (self.ndarray * 2**self.f).astype(np.int64)
     @property
     def bin(self): 
         return self.base_repr(2)
