@@ -7,3 +7,4 @@ dist
 refact.py
 build&install.bat
 unittest.bat
+debug.py
