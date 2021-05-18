@@ -1,28 +1,28 @@
 #########################
 # numfi - a numpy.ndarray subclass that does fixed-point arithmetic.
 # author : zinger.kyon@gmail.com
-# version : 0.1
+# version : 0.2.0
 #########################
+
+#TODO: complex support?
 
 import numpy as np 
 import warnings
 
 def quantize(array, signed, n_word, n_frac, rounding, overflow):    
-    if n_frac > 32:
+    if n_frac > 32: #TODO: n_frac too large will cause many problem (overflow np.int64/precision too small for floating point calculation, etc..)
         warnings.warn(f"n_frac={n_frac} is very large and may overflow during quantize")
-    upper = 2**(n_word-n_frac-bool(signed)) - (2 ** -n_frac)
+    upper = 2**(n_word-n_frac-(1 if signed else 0)) - (2 ** -n_frac)
     lower = -2**(n_word-n_frac-1) if signed else 0 
     flag = (array.f>n_frac) or (array.upper>upper) or (array.lower<lower) if isinstance(array, numfi) else True
     # array.f < n_frac means we will not lost precision, so quantization is not need
     array = np.asarray(array) # convert list/other data type to numpy.ndarray
-    if np.issubdtype(array.dtype,np.integer):
-        array = array.astype(np.float64)
-    array = array.reshape(1,) if array.shape == () else array # single value will be convert to (1,) array to allow index
+    array = array.reshape(1,) if array.shape == () else array # single value will be convert to (1,) array to allow indexing
 
     if flag:
         # quantize method
         array_int = array * (2**n_frac) 
-        if rounding == 'round':  # round towards nearest integer, this is faster than np.round()
+        if rounding == 'round':  # round towards nearest integer, this method is faster than np.round()
             array_int[array_int>0]+=0.5
             array_int[array_int<0]-=0.5
             array_int = array_int.astype(np.int64)
@@ -63,7 +63,7 @@ class numfi(np.ndarray):
         fixed = bool(kwargs.get('fixed',getattr(like, 'fixed', False)))
 
         quantized = quantize(input_array, s, w, f, rounding, overflow)
-        obj = quantized.view(cls) # will call __array_finalize__
+        obj = quantized.view(cls) # this will call __array_finalize__
 
         obj.s = s
         obj.w = w
@@ -74,7 +74,7 @@ class numfi(np.ndarray):
         obj.overflow = overflow
         obj.fixed = fixed
         return obj
-
+    # TODO: merge __new__ and __array_finalize__?
     def __array_finalize__(self,obj):
         self.s = getattr(obj, 's', 1)
         self.w = getattr(obj, 'w', 32)
@@ -88,33 +88,15 @@ class numfi(np.ndarray):
             raise ValueError("fraction length too large")
     #endregion initialization
     #region property 
-    @property
-    def ndarray(self):
-        return self.view(np.ndarray)
-    @property
-    def int(self):
-        return (self.ndarray * 2**self.f).astype(np.int64)
-    @property
-    def bin(self): 
-        return self.base_repr(2)
-    @property 
-    def bin_(self):
-        return self.base_repr(2,frac_point=True)
-    @property
-    def hex(self): 
-        return self.base_repr(16)
-    @property
-    def i(self):
-        return self.w-self.f-bool(self.s)
-    @property
-    def upper(self):
-        return 2**(self.w-self.f-bool(self.s)) - self.precision
-    @property
-    def lower(self):
-        return -2**(self.w-self.f-1) if self.s else 0 
-    @property
-    def precision(self):
-        return 2**(-self.f)
+    ndarray     = property(lambda self: self.view(np.ndarray))
+    int         = property(lambda self: (self.ndarray * 2**self.f).astype(np.int64))
+    bin         = property(lambda self: self.base_repr(2))
+    bin_        = property(lambda self: self.base_repr(2,frac_point=True))
+    hex         = property(lambda self: self.base_repr(16))
+    i           = property(lambda self: self.w-self.f- (1 if self.s else 0))
+    upper       = property(lambda self: 2**self.i - self.precision)
+    lower       = property(lambda self: -2**(self.w-self.f-1) if self.s else 0)
+    precision   = property(lambda self: 2**(-self.f))
     #endregion property
     #region methods
     def base_repr(self, base=2, frac_point=False): # return ndarray with same shape and dtype = '<Uw' where w=self.w
@@ -128,7 +110,7 @@ class numfi(np.ndarray):
         else:
             raise ValueError("array is empty")
     #endregion methods    
-    #region overload operators
+    #region overload method
     def __repr__(self):
         signed = 's' if self.s else 'u'
         return super().__repr__() + f' {signed}{self.w}/{self.f}-{self.rounding[0]}/{self.overflow[0]}'
@@ -138,7 +120,7 @@ class numfi(np.ndarray):
     def __setitem__(self, key, item):
         quantized = quantize(item, self.s, self.w, self.f, self.rounding, self.overflow)
         super().__setitem__(key,quantized)
-    #endregion overload operators
+    #endregion overload method
     #region overload arithmetic operators     
     def __fixed_arithmetic__(self, func, y, add_flag):
         y = y if isinstance(y, numfi) else numfi(y, like=self)
@@ -179,11 +161,12 @@ class numfi(np.ndarray):
     __invert__      = lambda self:   numfi(~self.ndarray, like=self)
     __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self)
     __mod__         = lambda self,y: numfi(self.ndarray %  y, like=self)
-    __and__         = lambda self,y: numfi(self.ndarray &  y, like=self) 
-    __or__          = lambda self,y: numfi(self.ndarray |  y, like=self) 
-    __xor__         = lambda self,y: numfi(self.ndarray ^  y, like=self) 
-    __lshift__      = lambda self,y: numfi((self.int << y) * (2**-self.f), like=self)
-    __rshift__      = lambda self,y: numfi((self.int >> y) * (2**-self.f), like=self)
+    # bit wise operation use self.int and convert back
+    __and__         = lambda self,y: numfi((self.int &  y) * self.precision, like=self) 
+    __or__          = lambda self,y: numfi((self.int |  y) * self.precision, like=self) 
+    __xor__         = lambda self,y: numfi((self.int ^  y) * self.precision, like=self) 
+    __lshift__      = lambda self,y: numfi((self.int << y) * self.precision, like=self)
+    __rshift__      = lambda self,y: numfi((self.int >> y) * self.precision, like=self)
 
     __eq__          = lambda self,y: self.ndarray == y
     __ne__          = lambda self,y: self.ndarray != y
@@ -191,4 +174,4 @@ class numfi(np.ndarray):
     __gt__          = lambda self,y: self.ndarray >  y
     __le__          = lambda self,y: self.ndarray <= y
     __lt__          = lambda self,y: self.ndarray <  y
-    #endregion
+    #endregion overload arithmetic operators     

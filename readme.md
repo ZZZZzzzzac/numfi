@@ -1,4 +1,4 @@
-# numfi
+# [numfi](https://github.com/ZZZZzzzzac/numfi)
 numfi is a numpy.ndarray subclass that does fixed-point arithmetic.
 
 Feature:
@@ -9,13 +9,11 @@ Feature:
 ## Install
 **Prerequisite**: python3 and numpy
 
-currently numfi is not ready for pypi, so you can clone this repo and build/install locally by:
 ```
-python setup.py bdist_wheel
+pip install numfi
+```
+or you can just copy [numfi.py](https://github.com/ZZZZzzzzac/numfi/blob/master/numfi/numfi.py) and do whatever you want, after all it's only 200 lines of code
 
-python -m pip install numfi --upgrade --force-reinstall --find-links=./dist 
-```
-or you can just copy [`numfi.py`](./numfi/numfi.py) and use as what you want, after all it's only 200 line of code in one file
 ## Quick start
 ```python
 from numfi import numfi
@@ -26,7 +24,7 @@ x = numfi([1,2,3],1,16,8)
 # any arithmetic operation with numfi will return a numfi object with proper precision and value
 y = x + 1 
 z = x * 2
-w = x / (0.1 + x)
+w = np.sin(x)
 ...
 ```
 ## Document

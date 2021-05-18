@@ -187,7 +187,7 @@ class numfiTest(unittest.TestCase):
         
     def test_neg(self):
         x = numfi([1,2,3],1,16,8)
-        self.assertTrue(np.all(-x,[-1,-2,-3]))
+        self.assertTrue(np.all(-x==[-1,-2,-3]))
 
         x = numfi([1,2,3],0,16,8)
-        self.assertTrue(np.all(-x,[0,0,0]))
+        self.assertTrue(np.all(-x==[0,0,0]))
