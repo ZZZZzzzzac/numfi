@@ -15,6 +15,7 @@ python setup.py bdist_wheel
 
 python -m pip install numfi --upgrade --force-reinstall --find-links=./dist 
 ```
+or you can just copy [`numfi.py`](./numfi/numfi.py) and use as what you want, after all it's only 200 line of code in one file
 ## Quick start
 ```python
 from numfi import numfi

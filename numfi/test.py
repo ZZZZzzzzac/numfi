@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from .object import *
+from .numfi import *
 
 class numfiTest(unittest.TestCase):
     def test_create_numfi(self):        
@@ -18,6 +18,16 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
         self.assertRaises(ValueError, lambda:numfi(np.pi,1,8,9))
+
+        x = numfi([1,2,3],1,16,8)[0]
+        self.assertEqual(x.s, 1)
+        self.assertEqual(x.w, 16)
+        self.assertEqual(x.f, 8)
+
+        x = numfi(np.zeros((3,3)),1,16,8)[2,1:3]
+        self.assertEqual(x.s, 1)
+        self.assertEqual(x.w, 16)
+        self.assertEqual(x.f, 8)
 
     def test_like(self):
         T = numfi([],1,17,5, rounding='floor', overflow='wrap', fixed=True)
@@ -159,21 +169,21 @@ class numfiTest(unittest.TestCase):
         a3 = a / 0.3333
         self.assertTrue(np.all(a3==[ 2.457031250000000  , 2.730468750000000  , 0.386718750000000]))
 
-    def test_i(self):
-        x = numfi([1,2,3],1,15,6)
-        before = x.ctypes.data
-        x += 1
-        after = x.ctypes.data
-        self.assertEqual(before, after)
-        x -= 2
-        after = x.ctypes.data
-        self.assertEqual(before, after)
-        x *= 3
-        after = x.ctypes.data
-        self.assertEqual(before, after)
-        x /= 4
-        after = x.ctypes.data
-        self.assertEqual(before, after)
+    # def test_i(self):
+    #     x = numfi([1,2,3],1,15,6)
+    #     before = x.ctypes.data
+    #     x += 1
+    #     after = x.ctypes.data
+    #     self.assertEqual(before, after)
+    #     x -= 2
+    #     after = x.ctypes.data
+    #     self.assertEqual(before, after)
+    #     x *= 3
+    #     after = x.ctypes.data
+    #     self.assertEqual(before, after)
+    #     x /= 4
+    #     after = x.ctypes.data
+    #     self.assertEqual(before, after)
         
     def test_neg(self):
         x = numfi([1,2,3],1,16,8)

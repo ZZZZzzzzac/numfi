@@ -31,6 +31,7 @@ z = x * 2
 w = x / (0.1 + x)
 ...
 ```
+Other example can be found in [arithnetic](arithmetic.md)
 ## Document
 Details can be found here: [https://numfi.readthedocs.io/en/latest/?](https://numfi.readthedocs.io/en/latest/?)
 

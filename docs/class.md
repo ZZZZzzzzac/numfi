@@ -27,8 +27,10 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
 
     one of `'round'`/`'floor'`, used during quantization    
 
-    - `'round'`: use np.round(), round to nearest integer 
-    - `'floor'`: use np.floor(), round to negative infinity  
+    - `'round'`: use np.round(), round towards nearest integer 
+    - `'floor'`: use np.floor(), round towards negative infinity  
+    - `'ceil'`: use np.ceil(), round towards to positive infinity
+    - `'trunc'`: use astype(np.int64), round towards zero
   
 
 - `overflow`: `str`, default:`'saturate'`  

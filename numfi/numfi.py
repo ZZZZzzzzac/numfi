@@ -1,14 +1,13 @@
 #########################
-# numfi - a fixed-point class (mimic from matlab's fixed-point object <fi>) inherited from numpy.ndarray
-# author : ZZZZzzzzac zinger.kyon@gmail.com
+# numfi - a numpy.ndarray subclass that does fixed-point arithmetic.
+# author : zinger.kyon@gmail.com
 # version : 0.1
 #########################
 
 import numpy as np 
 import warnings
-from enum import Enum
+
 def quantize(array, signed, n_word, n_frac, rounding, overflow):    
-    """docstring""" 
     if n_frac > 32:
         warnings.warn(f"n_frac={n_frac} is very large and may overflow during quantize")
     upper = 2**(n_word-n_frac-bool(signed)) - (2 ** -n_frac)
@@ -23,10 +22,16 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
     if flag:
         # quantize method
         array_int = array * (2**n_frac) 
-        if rounding == 'round':  # TODO: other rounding method
-            array_int = np.round(array_int).astype(np.int64) # TODO: np.round() is slow, any better idea?
-        elif rounding == 'floor':  
+        if rounding == 'round':  # round towards nearest integer, this is faster than np.round()
+            array_int[array_int>0]+=0.5
+            array_int[array_int<0]-=0.5
+            array_int = array_int.astype(np.int64)
+        elif rounding == 'floor': # round towards -inf
             array_int = np.floor(array_int).astype(np.int64) 
+        elif rounding == 'trunc': # round towards zero
+            array_int = array_int.astype(np.int64) 
+        elif rounding == 'ceil':  # round towards +inf
+            array_int = np.ceil(array_int).astype(np.int64)
         else:
             raise ValueError(f"invaild rounding method: {rounding}")
         # overflow method
@@ -35,9 +40,9 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
             array_int &= (m-1)
             if signed:
                 array_int[array_int>=(1<<(n_word-1))] |= (-m)
-            array[...] = array_int * (2 ** -n_frac)
+            array = array_int * (2 ** -n_frac)
         elif overflow == 'saturate': # worst 4n, best 2n 
-            array[...] = array_int * (2 ** -n_frac) # TODO: memory assigment to use same memory, is this really worthy? (idea, use different routine for iadd/isub/imul/....)
+            array = array_int * (2 ** -n_frac) 
             array[array>upper] = upper
             array[array<lower] = lower
         else:
@@ -50,21 +55,21 @@ class numfi(np.ndarray):
     def __new__(cls, input_array=[], s=None, w=None, f=None, **kwargs):
         like = input_array if isinstance(input_array, numfi) and kwargs.get('like',None) is None else kwargs.get('like',None)
         # priority: position args > like.attr > default
-        s = s if s is not None else getattr(like, 's', 1)
-        w = w if w is not None else getattr(like, 'w', 32)
-        f = f if f is not None else getattr(like, 'f', 16)
+        s = s if isinstance(s, (int, np.integer)) else getattr(like, 's', 1)
+        w = w if isinstance(w, (int, np.integer)) else getattr(like, 'w', 32)
+        f = f if isinstance(f, (int, np.integer)) else getattr(like, 'f', 16)
         rounding = kwargs.get('rounding',getattr(like, 'rounding', 'round')) 
         overflow = kwargs.get('overflow',getattr(like, 'overflow', 'saturate'))
         fixed = bool(kwargs.get('fixed',getattr(like, 'fixed', False)))
 
         quantized = quantize(input_array, s, w, f, rounding, overflow)
-        obj = quantized.view(cls)
+        obj = quantized.view(cls) # will call __array_finalize__
 
         obj.s = s
         obj.w = w
         obj.f = f 
         if obj.i<0:
-            raise ValueError("w<f is not supported")
+            raise ValueError("fraction length > word length is not support")
         obj.rounding = rounding
         obj.overflow = overflow
         obj.fixed = fixed
@@ -77,13 +82,12 @@ class numfi(np.ndarray):
         self.rounding = getattr(obj, 'rounding', 'round')
         self.overflow = getattr(obj, 'overflow', 'saturate')
         self.fixed = getattr(obj, 'fixed', False)
-        if self.w < self.f:
+        if self.i<0:
             raise ValueError("fraction length > word length is not support")
         if self.f >= 64: # NOTE: this will hit np.int64 bound
             raise ValueError("fraction length too large")
     #endregion initialization
     #region property 
-    #TODO: s/w/f rounding/overflow read only?
     @property
     def ndarray(self):
         return self.view(np.ndarray)
@@ -118,8 +122,11 @@ class numfi(np.ndarray):
             add_point = lambda s: s[:-self.f] + '.' + s[-self.f:] if frac_point else s
             func = lambda i: add_point(np.binary_repr(i,width=self.w))    
         else:
-            func = lambda i: np.base_repr(i,base=base) #TODO: hex and other base_repr should follow bin, with width=xxx
-        return np.vectorize(func)(self.int)        
+            func = lambda i: np.base_repr(i,base=base)
+        if self.size>0:
+            return np.vectorize(func)(self.int)        
+        else:
+            raise ValueError("array is empty")
     #endregion methods    
     #region overload operators
     def __repr__(self):
@@ -141,7 +148,8 @@ class numfi(np.ndarray):
             f = max(self.f, y.f)            
             result = numfi(func(y), s, i+f+s+1, f, like=self)
         else:
-            result = numfi(func(y).view(np.ndarray), s, self.w+y.w, self.f+y.f, like=self)
+            result = numfi(func(y).view(np.ndarray), s, self.w+y.w, self.f+y.f, like=self) 
+        # note that quantization is not needed for full precision mode here, new w/f is larger so no precision lost or overflow
         if self.fixed: 
             return numfi(result,like=self) # if fixed, quantize full precision result to fixed length
         elif y.fixed:
@@ -159,6 +167,7 @@ class numfi(np.ndarray):
     __mul__         = lambda self,y: self.__fixed_arithmetic__(super().__mul__,       y, False)
     __rmul__        = lambda self,y: self.__fixed_arithmetic__(super().__rmul__,      y, False)
     __imul__        = lambda self,y: self.__fixed_arithmetic__(super().__imul__,      y, False)
+    # TODO: what to do with div? in practice we should avoid div as much as possible and use mul instead 
     __truediv__     = lambda self,y: self.__fixed_arithmetic__(super().__truediv__,   y, False)
     __rtruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__rtruediv__,  y, False)
     __itruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__itruediv__,  y, False)
@@ -166,15 +175,15 @@ class numfi(np.ndarray):
     __rfloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__rfloordiv__, y, False)
     __ifloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__ifloordiv__, y, False)
 
-    __neg__         = lambda self:   numfi(-self.ndarray, like=self) # TODO: when self is unsigned, __neg__ is all zero or invalid? (in matlab it's all zero)
+    __neg__         = lambda self:   numfi(-self.ndarray, like=self)
     __invert__      = lambda self:   numfi(~self.ndarray, like=self)
-    __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self) # TODO: should n_word/n_frac change in __pow__?
+    __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self)
     __mod__         = lambda self,y: numfi(self.ndarray %  y, like=self)
-    __lshift__      = lambda self,y: numfi(self.ndarray << y, like=self) # TODO: l/rshift, how?
-    __rshift__      = lambda self,y: numfi(self.ndarray >> y, like=self)
     __and__         = lambda self,y: numfi(self.ndarray &  y, like=self) 
     __or__          = lambda self,y: numfi(self.ndarray |  y, like=self) 
     __xor__         = lambda self,y: numfi(self.ndarray ^  y, like=self) 
+    __lshift__      = lambda self,y: numfi((self.int << y) * (2**-self.f), like=self)
+    __rshift__      = lambda self,y: numfi((self.int >> y) * (2**-self.f), like=self)
 
     __eq__          = lambda self,y: self.ndarray == y
     __ne__          = lambda self,y: self.ndarray != y
