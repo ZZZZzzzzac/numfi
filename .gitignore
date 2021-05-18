@@ -1,9 +1,11 @@
 .vscode
 __pycache__
 /build/
+/site/
 dist
 *.ipynb
 *.egg-info
+*.pdf
 refact.py
 build&install.bat
 unittest.bat

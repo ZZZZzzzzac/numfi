@@ -7,7 +7,6 @@
 import numpy as np 
 import warnings
 from enum import Enum
-#TODO: documents
 def quantize(array, signed, n_word, n_frac, rounding, overflow):    
     """docstring""" 
     if n_frac > 32:
@@ -24,9 +23,9 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
     if flag:
         # quantize method
         array_int = array * (2**n_frac) 
-        if rounding == 'round':
+        if rounding == 'round':  # TODO: other rounding method
             array_int = np.round(array_int).astype(np.int64) # TODO: np.round() is slow, any better idea?
-        elif rounding == 'floor':
+        elif rounding == 'floor':  
             array_int = np.floor(array_int).astype(np.int64) 
         else:
             raise ValueError(f"invaild rounding method: {rounding}")
@@ -49,7 +48,7 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
 class numfi(np.ndarray):
     #region initialization
     def __new__(cls, input_array=[], s=None, w=None, f=None, **kwargs):
-        like = kwargs.get('like',None)
+        like = input_array if isinstance(input_array, numfi) and kwargs.get('like',None) is None else kwargs.get('like',None)
         # priority: position args > like.attr > default
         s = s if s is not None else getattr(like, 's', 1)
         w = w if w is not None else getattr(like, 'w', 32)
@@ -61,7 +60,6 @@ class numfi(np.ndarray):
         quantized = quantize(input_array, s, w, f, rounding, overflow)
         obj = quantized.view(cls)
 
-        # TODO: obj.requantize
         obj.s = s
         obj.w = w
         obj.f = f 
@@ -85,7 +83,7 @@ class numfi(np.ndarray):
             raise ValueError("fraction length too large")
     #endregion initialization
     #region property 
-    #TODO: s/w/f rounding/overflow getter, no setter since they are read only, use requantize to assign new value
+    #TODO: s/w/f rounding/overflow read only?
     @property
     def ndarray(self):
         return self.view(np.ndarray)

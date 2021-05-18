@@ -3,11 +3,10 @@ numfi is a numpy.ndarray subclass that does fixed-point arithmetic.
 
 Feature:
 - Automatically perform fixed-point arithmetic through overloaded operators
-- As a numpy.ndarray subclass, it's compatible with numpy and other library, just like a normal numpy.ndarray
-- Minimize quantization as much as possible to achieve maximum calculation speed.
+- Maximum compatibility with numpy and other library, just like a normal numpy.ndarray
+- Optimized calculation speed by minimizing quantization as much as possible 
 
 ## Install
----
 **Prerequisite**: python3 and numpy
 
 currently numfi is not ready for pypi, so you can clone this repo and build/install locally by:
@@ -17,7 +16,6 @@ python setup.py bdist_wheel
 python -m pip install numfi --upgrade --force-reinstall --find-links=./dist 
 ```
 ## Quick start
----
 ```python
 from numfi import numfi
 
@@ -31,7 +29,7 @@ w = x / (0.1 + x)
 ...
 ```
 ## Document
----
 Details can be found here: [https://numfi.readthedocs.io/en/latest/?](https://numfi.readthedocs.io/en/latest/?)
+
 ## License
 The project is licensed under the MIT license.
