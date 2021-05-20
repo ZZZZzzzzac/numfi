@@ -17,7 +17,7 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
-        self.assertRaises(ValueError, lambda:numfi(np.pi,1,8,9))
+
 
         x = numfi([1,2,3],1,16,8)[0]
         self.assertEqual(x.s, 1)
@@ -33,6 +33,10 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.s,1)
         self.assertEqual(x.w, 32)
         self.assertEqual(x.f, 16)
+
+        self.assertRaises(ValueError, lambda:numfi(np.pi,1,8,9)) # numfi.i < 0
+        self.assertRaises(ValueError, lambda:numfi(np.pi,1,11,-2)) # numfi.f <0
+        self.assertRaises(ValueError, lambda:numfi(np.pi,1,0,0)) # numfi.w <=0
 
     def test_like(self):
         T = numfi([],1,17,5, rounding='floor', overflow='wrap', fixed=True)
@@ -216,20 +220,23 @@ class numfiTest(unittest.TestCase):
     def test_div(self):
         q = [0.814723686393179,0.905791937075619,0.126986816293506]
         a = numfi(q,1,16,8)
-        a3 = a / 0.3333        
+        a3 = a / 0.3333
+        print(a3.ndarray)
+        self.assertTrue(np.all(a3==[2.449218750000000 ,  2.718750000000000 ,  0.386718750000000]))
         self.assertEqual(a3.s, 1)
-        self.assertEqual(a3.w, 32)
-        self.assertEqual(a3.f, 16) # note this is different than matlab
+        self.assertEqual(a3.w, 16)
+        self.assertEqual(a3.f, 8)
 
         aa = a/numfi(q,1,8,4)
-        self.assertEqual(aa.w, 24)
-        self.assertEqual(aa.f, 12)
+        self.assertTrue(np.all(aa==[1.000000000000000 ,  1.062500000000000 ,  1.062500000000000]))
+        self.assertEqual(aa.w, 16)
+        self.assertEqual(aa.f, 4)
 
     def test_fixed_M(self):
         q = [0.814723686393179,0.905791937075619,0.126986816293506]
         a = numfi(q,1,16,8,fixed=True)
         a3 = a / 0.3333
-        self.assertTrue(np.all(a3==[ 2.457031250000000  , 2.730468750000000  , 0.386718750000000]))
+        self.assertTrue(np.all(a3==[2.449218750000000 ,  2.718750000000000 ,  0.386718750000000]))
         
     def test_neg(self):
         x = numfi([1,2,3],1,16,8)

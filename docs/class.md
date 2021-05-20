@@ -17,11 +17,11 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
 
 - `w`: *`int`*, default:`32`  
 
-    bits of word
+    bits of word, must be positive integer
 
 - `f`: *`int`*, default:`16`  
 
-    bits of fraction. Note that unlike matlab, `f` must be less or equal to `w`, means negative integer bits is not supported in numfi
+    bits of fraction, must be non negative integer. Note that unlike matlab, negative fraction length is not supported
 
 - `rounding`: `str`, default:`'round'`  
 

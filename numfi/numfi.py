@@ -25,6 +25,7 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
     array = array.reshape(1,) if array.shape == () else array # single value will be convert to (1,) array to allow indexing
     
     if flag:
+        print('Q')
         array_int = array * (2**n_frac) 
         if rounding == 'round':  # round towards nearest integer, this method is faster than np.round()
             array_int[array_int>0]+=0.5
@@ -67,38 +68,46 @@ class numfi(np.ndarray):
 
         quantized = quantize(input_array, s, w, f, rounding, overflow)
         obj = quantized.view(cls) # this will call __array_finalize__
-
-        obj.s = s
-        obj.w = w
-        obj.f = f 
+        obj._s, obj._w, obj._f = int(bool(s)), w, f
+        obj._rounding = rounding
+        obj._overflow = overflow
+        obj._fixed = fixed
+        if not isinstance(obj.w, (int,np.integer)) or obj.w<=0:
+            raise ValueError(f"numfi.w[{obj.w}] must be positive integer")
+        if not isinstance(obj.f, (int,np.integer)) or obj.f<0:
+            raise ValueError(f"numfi.f[{obj.f}] must non negative integer")
         if obj.i<0:
-            raise ValueError("fraction length > word length is not support")
-        obj.rounding = rounding
-        obj.overflow = overflow
-        obj.fixed = fixed
+            raise ValueError(f"numfi.i[{obj.i}] = numfi.w - numfi.f - numfi.s must greater than 0")
         return obj
-    # TODO: merge __new__ and __array_finalize__?
-    def __array_finalize__(self,obj):
-        self.s = getattr(obj, 's', 1)
-        self.w = getattr(obj, 'w', 32)
-        self.f = getattr(obj, 'f', 16)
-        self.rounding = getattr(obj, 'rounding', 'round')
-        self.overflow = getattr(obj, 'overflow', 'saturate')
-        self.fixed = getattr(obj, 'fixed', False)
-        if self.i<0:
-            raise ValueError("fraction length > word length is not support")
 
+    def __array_finalize__(self,obj):
+        self._s = getattr(obj, 's', 1)
+        self._w = getattr(obj, 'w', 32)
+        self._f = getattr(obj, 'f', 16)
+        self._rounding = getattr(obj, 'rounding', 'round')
+        self._overflow = getattr(obj, 'overflow', 'saturate')
+        self._fixed = getattr(obj, 'fixed', False)
     #endregion initialization
-    #region property 
-    ndarray     = property(lambda self: self.view(np.ndarray))
+    #region read only property 
+    s           = property(lambda self: self._s)
+    w           = property(lambda self: self._w)
+    f           = property(lambda self: self._f)
+    rounding    = property(lambda self: self._rounding)
+    overflow    = property(lambda self: self._overflow)
+    fixed       = property(lambda self: self._fixed)
     int         = property(lambda self: (self.ndarray * 2**self.f).astype(np.int64))
     bin         = property(lambda self: self.base_repr(2))
     bin_        = property(lambda self: self.base_repr(2,frac_point=True))
     hex         = property(lambda self: self.base_repr(16))
-    i           = property(lambda self: self.w-self.f- (1 if self.s else 0))
+    i           = property(lambda self: self.w-self.f-self.s)
     upper       = property(lambda self: 2**self.i - self.precision)
     lower       = property(lambda self: -2**(self.w-self.f-1) if self.s else 0)
     precision   = property(lambda self: 2**(-self.f))
+    @property
+    def ndarray(self):
+        view = self.view(np.ndarray)
+        view.flags.writeable = False # ndarray is read only to avoid undesired modify
+        return view    
     #endregion property
     #region methods
     def base_repr(self, base=2, frac_point=False): # return ndarray with same shape and dtype = '<Uw' where w=self.w
@@ -111,6 +120,9 @@ class numfi(np.ndarray):
             return np.vectorize(func)(self.int)        
         else:
             raise ValueError("array is empty")
+    def requantize(self, *args, **kwargs):
+        kwargs['like'] = self if kwargs.get('like') is None else kwargs.get('like')
+        return numfi(self,*args, **kwargs)
     #endregion methods    
     #region overload method
     def __repr__(self):
@@ -124,40 +136,49 @@ class numfi(np.ndarray):
         super().__setitem__(key,quantized)
     #endregion overload method
     #region overload arithmetic operators     
-    def __fixed_arithmetic__(self, func, y, add_flag):
-        y = y if isinstance(y, numfi) else numfi(y, like=self)
-        s = 1 if self.s or y.s else 0
-        if add_flag:  # add_flag is true, perform add/sub, otherwise mul/div #TODO: more readable and fast method?
-            i = max(self.i, y.i)
-            f = max(self.f, y.f)            
-            result = numfi(func(y), s, i+f+s+1, f, like=self)
-        else:
-            result = numfi(func(y).view(np.ndarray), s, self.w+y.w, self.f+y.f, like=self) 
+    def __fixed_arithmetic__(self, func, y):
+        y_fi = y if isinstance(y, numfi) else numfi(y, like=self)
+        s = self.s | y_fi.s
+        name = func.__name__[-5:-2]
+        if name == 'add' or name == 'sub': 
+            i = max(self.i, y_fi.i)
+            f = max(self.f, y_fi.f)            
+            result = numfi(func(y_fi), s, i+f+s+1, f, like=self)
+        elif name == 'mul':
+            result = numfi(func(y_fi), s, self.w+y_fi.w, self.f+y_fi.f, like=self) 
+        elif name == 'div':
+            if isinstance(y,numfi):
+                result = numfi(func(y).ndarray, s, max(self.w,y.w), self.f-y.f, like=self) 
+            else:
+                result = numfi(func(y).ndarray, like=self) 
         # note that quantization is not needed for full precision mode here, new w/f is larger so no precision lost or overflow
         if self.fixed: 
             return numfi(result,like=self) # if fixed, quantize full precision result to fixed length
-        elif y.fixed:
-            return numfi(result,like=y)            
+        elif y_fi.fixed:
+            return numfi(result,like=y_fi)            
         else: 
             return result
+    
+    def __fixed_arithmetic_inplace__(self, func, y): # TODO: __ixxx__ need call quantize, otherwise may numfi != numfi.ndarray
+        y_fi = y if isinstance(y, numfi) else numfi(y, like=self)
+        return numfi(func(y_fi).ndarray, like=self)
 
-    __add__         = lambda self,y: self.__fixed_arithmetic__(super().__add__,  y, True)
-    __radd__        = lambda self,y: self.__fixed_arithmetic__(super().__radd__, y, True)
-    __iadd__        = lambda self,y: self.__fixed_arithmetic__(super().__iadd__, y, True)
-    __sub__         = lambda self,y: self.__fixed_arithmetic__(super().__sub__,  y, True)
-    __rsub__        = lambda self,y: self.__fixed_arithmetic__(super().__rsub__, y, True)
-    __isub__        = lambda self,y: self.__fixed_arithmetic__(super().__isub__, y, True)
-    # TODO: should we do +=,*=,-=,\=,%=.etc.. in-place?
-    __mul__         = lambda self,y: self.__fixed_arithmetic__(super().__mul__,       y, False)
-    __rmul__        = lambda self,y: self.__fixed_arithmetic__(super().__rmul__,      y, False)
-    __imul__        = lambda self,y: self.__fixed_arithmetic__(super().__imul__,      y, False)
-    # TODO: what to do with div? in practice we should avoid div as much as possible and use mul instead 
-    __truediv__     = lambda self,y: self.__fixed_arithmetic__(super().__truediv__,   y, False)
-    __rtruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__rtruediv__,  y, False)
-    __itruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__itruediv__,  y, False)
-    __floordiv__    = lambda self,y: self.__fixed_arithmetic__(super().__floordiv__,  y, False)
-    __rfloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__rfloordiv__, y, False)
-    __ifloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__ifloordiv__, y, False)
+    __add__         = lambda self,y: self.__fixed_arithmetic__(super().__add__,       y)
+    __radd__        = lambda self,y: self.__fixed_arithmetic__(super().__radd__,      y)    
+    __sub__         = lambda self,y: self.__fixed_arithmetic__(super().__sub__,       y)
+    __rsub__        = lambda self,y: self.__fixed_arithmetic__(super().__rsub__,      y)    
+    __mul__         = lambda self,y: self.__fixed_arithmetic__(super().__mul__,       y)
+    __rmul__        = lambda self,y: self.__fixed_arithmetic__(super().__rmul__,      y)    
+    __truediv__     = lambda self,y: self.__fixed_arithmetic__(super().__truediv__,   y)
+    __rtruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__rtruediv__,  y)    
+    __floordiv__    = lambda self,y: self.__fixed_arithmetic__(super().__floordiv__,  y)
+    __rfloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__rfloordiv__, y)    
+
+    __iadd__        = lambda self,y: self.__fixed_arithmetic_inplace__(super().__iadd__,      y)
+    __isub__        = lambda self,y: self.__fixed_arithmetic_inplace__(super().__isub__,      y)
+    __imul__        = lambda self,y: self.__fixed_arithmetic_inplace__(super().__imul__,      y)
+    __itruediv__    = lambda self,y: self.__fixed_arithmetic_inplace__(super().__itruediv__,  y)
+    __ifloordiv__   = lambda self,y: self.__fixed_arithmetic_inplace__(super().__ifloordiv__, y)
 
     __neg__         = lambda self:   numfi(-self.ndarray, like=self)
     __invert__      = lambda self:   numfi(-self.ndarray, like=self) # NOTE: `~` only works on integer/boolean, and is same as __neg__

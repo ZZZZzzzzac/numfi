@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="numfi", # Replace with your own username
-    version="0.2.1",
+    version="0.2.2",
     author="ZinGer_KyoN",
     author_email="zinger.kyon@gmail.com",
     license='MIT',
