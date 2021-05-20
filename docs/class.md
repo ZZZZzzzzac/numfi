@@ -30,16 +30,17 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
     - `'round'`: use np.round(), round towards nearest integer 
     - `'floor'`: use np.floor(), round towards negative infinity  
     - `'ceil'`: use np.ceil(), round towards to positive infinity
-    - `'trunc'`: use astype(np.int64), round towards zero
-  
+    - `'zero'`: use astype(np.int64), round towards zero  
+&nbsp;&nbsp;  
 
 - `overflow`: `str`, default:`'saturate'`  
 
     one of `'wrap'`/`'saturate'`, used during quantization
 
     - `'wrap'`: overflow/underflow will wrap to opposite side
-    - `'saturate'`: overflow/underflow will saturate at max/min value possible
-
+    - `'saturate'`: overflow/underflow will saturate at max/min value possible  
+&nbsp;&nbsp;
+    
 - `like`: `numfi`/None, default:`None`
 
     create new numfi from template `like`. if both keywords arguments and template `like` are given, new argument will have following priority:  **keywords > template(like) > default**

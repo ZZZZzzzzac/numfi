@@ -1,10 +1,13 @@
 # [numfi](https://github.com/ZZZZzzzzac/numfi)
 numfi is a numpy.ndarray subclass that does fixed-point arithmetic.
 
-Feature:
-- Automatically perform fixed-point arithmetic through overloaded operators
-- Maximum compatibility with numpy and other library, just like a normal numpy.ndarray
-- Optimized calculation speed by minimizing quantization as much as possible 
+Feature:  
+
+- Automatically perform fixed-point arithmetic through overloaded operators  
+
+- Maximum compatibility with numpy and other library, just like a normal numpy.ndarray  
+
+- Optimized calculation speed by minimizing quantization as much as possible   
 
 ## Install
 **Prerequisite**: python3 and numpy
@@ -18,8 +21,8 @@ or you can just copy [numfi.py](https://github.com/ZZZZzzzzac/numfi/blob/master/
 ```python
 from numfi import numfi
 
-# numfi(array, signed, bits_word, bits_frac, rounding='round', overflow='wrap')
-x = numfi([1,2,3],1,16,8) 
+# numfi(array=[], signed=1, bits_word=32, bits_frac=16, rounding='round', overflow='wrap')
+x = numfi(np.random.rand(3,3),1,16,8) 
 
 # any arithmetic operation with numfi will return a numfi object with proper precision and value
 y = x + 1 

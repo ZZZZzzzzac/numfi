@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from .numfi import *
-
+# TODO: add more test
 class numfiTest(unittest.TestCase):
     def test_create_numfi(self):        
         numfi(np.pi)
@@ -29,21 +29,42 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
 
+        x = np.arange(10).view(numfi)
+        self.assertEqual(x.s,1)
+        self.assertEqual(x.w, 32)
+        self.assertEqual(x.f, 16)
+
     def test_like(self):
         T = numfi([],1,17,5, rounding='floor', overflow='wrap', fixed=True)
         x = numfi([1,2,3,4], like=T)
-        self.assertEqual(x.w, T.w)
-        self.assertEqual(x.f, T.f)
         self.assertEqual(x.s, T.s)
+        self.assertEqual(x.w, T.w)
+        self.assertEqual(x.f, T.f)        
         self.assertEqual(x.rounding, T.rounding)
         self.assertEqual(x.overflow, T.overflow)
         self.assertEqual(x.fixed, T.fixed)
+
+        y = numfi(x)
+        self.assertEqual(y.s, T.s)
+        self.assertEqual(y.w, T.w)
+        self.assertEqual(y.f, T.f)        
+        self.assertEqual(y.rounding, T.rounding)
+        self.assertEqual(y.overflow, T.overflow)
+        self.assertEqual(y.fixed, T.fixed)
 
     def test_kwargs(self):
         x = numfi(np.pi,1,16,8,rounding='floor',overflow='wrap',fixed=True)
         self.assertEqual(x.rounding, 'floor')
         self.assertEqual(x.overflow, 'wrap')
         self.assertEqual(x.fixed, True)
+
+        y = numfi(np.arange(10),0,22,like=x)
+        self.assertEqual(y.s, 0)
+        self.assertEqual(y.w, 22)
+        self.assertEqual(y.f, 8)        
+        self.assertEqual(y.rounding, x.rounding)
+        self.assertEqual(y.overflow, x.overflow)
+        self.assertEqual(y.fixed, x.fixed)
 
     def test_quantize(self):
         x = numfi(np.pi,1,16,8)
@@ -58,9 +79,26 @@ class numfiTest(unittest.TestCase):
         x = numfi(-3.785,1,14,6)
         self.assertEqual(x, -3.781250000000000)
         self.assertEqual(x.bin, '11111100001110')
+
+    def test_int64_overflow(self):
+        self.assertRaises(OverflowError, lambda: numfi([1],1,65,64))
+
+    def test_rounding(self):
+        x = numfi(-3.785,1,14,6, rounding='round')
+        self.assertEqual(x, -3.781250000000000)
+        self.assertEqual(x.bin, '11111100001110')
+
         x = numfi(-3.785,1,14,6, rounding='floor')
         self.assertEqual(x, -3.796875000000000)
         self.assertEqual(x.bin, '11111100001101')
+
+        x = numfi(-3.785,1,14,6, rounding='ceil')
+        self.assertEqual(x, -3.781250000000000)
+        self.assertEqual(x.bin, '11111100001110')
+
+        x = numfi(-3.785,1,14,6, rounding='zero')
+        self.assertEqual(x, -3.781250000000000)
+        self.assertEqual(x.bin, '11111100001110')
 
     def test_overflow(self):
         x = numfi([-4,-3,-2,-1,0,1,2,3],1,10,8,overflow='saturate')
@@ -73,6 +111,30 @@ class numfiTest(unittest.TestCase):
         self.assertTrue(np.all(x==[0.363281250000000,1.273437500000000,-1.816406250000000,-0.910156250000000,0,1.089843750000000,-1.816406250000000,-0.726562500000000]))
         x = numfi([1.1,2.2,3.3,4.4,5.5],0,6,4,overflow='wrap')
         self.assertTrue(np.all(x==[1.125000000000000,2.187500000000000,3.312500000000000,0.375000000000000,1.500000000000000]))
+
+    def test_bin_hex(self):
+        x = numfi(-3.785,1,14,6, rounding='zero')
+        self.assertEqual(x.bin, '11111100001110')
+        self.assertEqual(x.bin_, '11111100.001110')
+        self.assertEqual(x.hex, '-F2')
+
+    def test_i(self):
+        x = numfi(-3.785,1,14,6, rounding='zero')
+        self.assertEqual(x.i, 7)
+
+        x = numfi(3.785,0,22,14, rounding='zero')
+        self.assertEqual(x.i, 8)
+    
+    def test_upper_lower_precision(self):
+        x = numfi([],1,15,6)
+        self.assertEqual(x.upper, 255.984375)
+        self.assertEqual(x.lower, -256)
+        self.assertEqual(x.precision, 0.015625)
+
+        x = numfi([],0,15,6)
+        self.assertEqual(x.upper,511.984375)
+        self.assertEqual(x.lower,0)
+        self.assertEqual(x.precision, 0.015625)
 
     def test_add(self):
         x = numfi([1,2,3,4],1,16,8)
@@ -168,26 +230,55 @@ class numfiTest(unittest.TestCase):
         a = numfi(q,1,16,8,fixed=True)
         a3 = a / 0.3333
         self.assertTrue(np.all(a3==[ 2.457031250000000  , 2.730468750000000  , 0.386718750000000]))
-
-    # def test_i(self):
-    #     x = numfi([1,2,3],1,15,6)
-    #     before = x.ctypes.data
-    #     x += 1
-    #     after = x.ctypes.data
-    #     self.assertEqual(before, after)
-    #     x -= 2
-    #     after = x.ctypes.data
-    #     self.assertEqual(before, after)
-    #     x *= 3
-    #     after = x.ctypes.data
-    #     self.assertEqual(before, after)
-    #     x /= 4
-    #     after = x.ctypes.data
-    #     self.assertEqual(before, after)
         
     def test_neg(self):
         x = numfi([1,2,3],1,16,8)
         self.assertTrue(np.all(-x==[-1,-2,-3]))
+        self.assertEqual(x.s,1)
+        self.assertEqual(x.w,16)
+        self.assertEqual(x.f,8)
 
         x = numfi([1,2,3],0,16,8)
         self.assertTrue(np.all(-x==[0,0,0]))
+        self.assertEqual(x.s,0)
+        self.assertEqual(x.w,16)
+        self.assertEqual(x.f,8)
+
+    def test_invert(self):
+        x = numfi([1,2,3],1,16,8)
+        self.assertTrue(np.all(-x==[-1,-2,-3]))
+        self.assertEqual(x.s,1)
+        self.assertEqual(x.w,16)
+        self.assertEqual(x.f,8)
+
+        x = numfi([1,2,3],0,16,8)
+        self.assertTrue(np.all(-x==[0,0,0]))
+        self.assertEqual(x.s,0)
+        self.assertEqual(x.w,16)
+        self.assertEqual(x.f,8)
+
+    def test_pow(self):
+        x = numfi([0,1+1/77,-3-52/123],1,16,8)
+        y = x**3
+        self.assertTrue(np.all(y==[  0.        ,   1.03515625, -40.06640625]))
+        self.assertEqual(y.s,x.s)
+        self.assertEqual(y.w,x.w)
+        self.assertEqual(y.f,x.f)
+    
+    def test_bitwise(self):
+        n = np.array([0b1101,0b1001,0b0001,0b1111])/2**8
+        x = numfi(n,1,16,8)
+        self.assertTrue(np.all((x & 0b1100).int==[0b1100,0b1000,0b0000,0b1100]))
+        self.assertTrue(np.all((x | 0b0101).int==[0b1101,0b1101,0b0101,0b1111]))
+        self.assertTrue(np.all((x ^ 0b0110).int==[0b1011,0b1111,0b0111,0b1001]))
+        self.assertTrue(np.all((x >>     1).int==[0b0110,0b0100,0b0000,0b0111]))
+        self.assertTrue(np.all((x <<     1).int==[0b11010,0b10010,0b00010,0b11110]))
+
+    def test_logical(self):
+        x = numfi([-2,-1,0,1,2])
+        self.assertTrue(np.all((x>1)==[False,False,False,False,True]))
+        self.assertTrue(np.all((x>=1)==[False,False,False,True,True]))
+        self.assertTrue(np.all((x==1)==[False,False,False,True,False]))
+        self.assertTrue(np.all((x!=1)==[True,True,True,False,True]))
+        self.assertTrue(np.all((x<=1)==[True,True,True,True,False]))
+        self.assertTrue(np.all((x<1)==[True,True,True,False,False]))

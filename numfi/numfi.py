@@ -1,7 +1,6 @@
 #########################
 # numfi - a numpy.ndarray subclass that does fixed-point arithmetic.
 # author : zinger.kyon@gmail.com
-# version : 0.2.0
 #########################
 
 #TODO: complex support?
@@ -9,32 +8,37 @@
 import numpy as np 
 import warnings
 
-def quantize(array, signed, n_word, n_frac, rounding, overflow):    
-    if n_frac > 32: #TODO: n_frac too large will cause many problem (overflow np.int64/precision too small for floating point calculation, etc..)
-        warnings.warn(f"n_frac={n_frac} is very large and may overflow during quantize")
-    upper = 2**(n_word-n_frac-(1 if signed else 0)) - (2 ** -n_frac)
+def quantize(array, signed, n_word, n_frac, rounding, overflow):   
+    bound = 2**(n_word-n_frac-(1 if signed else 0))
+    upper = bound - 2**-n_frac
     lower = -2**(n_word-n_frac-1) if signed else 0 
+
+    if upper == bound: # upper==bound means nfrac is too large that precision less than floating point resolution
+        warnings.warn(f"n_frac={n_frac} is too large, overflow/underflow may happen during quantization")
+    if 2**(n_word-(1 if signed else 0))-1 > np.iinfo(np.int64).max:
+        raise OverflowError(f"cannot quantize array, upper/lower overflow np.int64 bound")    
+
     flag = (array.f>n_frac) or (array.upper>upper) or (array.lower<lower) if isinstance(array, numfi) else True
     # array.f < n_frac means we will not lost precision, so quantization is not need
-    array = np.asarray(array) # convert list/other data type to numpy.ndarray
+    array = np.asarray(array,dtype=np.float64) # convert list/numfi/other data type to numpy.ndarray
+    #TODO: when n_frac = 0 and array is close to upper/lower bound, may overflow due to dtype=float64 lost precision, np.int64(np.float64(np.int64(9223372036854775807))) = -9223372036854775808
     array = array.reshape(1,) if array.shape == () else array # single value will be convert to (1,) array to allow indexing
-
+    
     if flag:
-        # quantize method
         array_int = array * (2**n_frac) 
         if rounding == 'round':  # round towards nearest integer, this method is faster than np.round()
             array_int[array_int>0]+=0.5
             array_int[array_int<0]-=0.5
             array_int = array_int.astype(np.int64)
         elif rounding == 'floor': # round towards -inf
-            array_int = np.floor(array_int).astype(np.int64) 
-        elif rounding == 'trunc': # round towards zero
-            array_int = array_int.astype(np.int64) 
+            array_int = np.floor(array_int).astype(np.int64)
+        elif rounding == 'zero': # round towards zero, fastest rounding method
+            array_int = array_int.astype(np.int64)
         elif rounding == 'ceil':  # round towards +inf
             array_int = np.ceil(array_int).astype(np.int64)
         else:
             raise ValueError(f"invaild rounding method: {rounding}")
-        # overflow method
+
         if overflow == 'wrap': # worst 3n, best 2n
             m = (1<<n_word)
             array_int &= (m-1)
@@ -48,7 +52,6 @@ def quantize(array, signed, n_word, n_frac, rounding, overflow):
         else:
             raise ValueError(f"invalid overflow method: {overflow}")
     return array
-    # NOTE: array math above can do in place to save memory
 
 class numfi(np.ndarray):
     #region initialization
@@ -84,8 +87,7 @@ class numfi(np.ndarray):
         self.fixed = getattr(obj, 'fixed', False)
         if self.i<0:
             raise ValueError("fraction length > word length is not support")
-        if self.f >= 64: # NOTE: this will hit np.int64 bound
-            raise ValueError("fraction length too large")
+
     #endregion initialization
     #region property 
     ndarray     = property(lambda self: self.view(np.ndarray))
@@ -145,7 +147,7 @@ class numfi(np.ndarray):
     __sub__         = lambda self,y: self.__fixed_arithmetic__(super().__sub__,  y, True)
     __rsub__        = lambda self,y: self.__fixed_arithmetic__(super().__rsub__, y, True)
     __isub__        = lambda self,y: self.__fixed_arithmetic__(super().__isub__, y, True)
-
+    # TODO: should we do +=,*=,-=,\=,%=.etc.. in-place?
     __mul__         = lambda self,y: self.__fixed_arithmetic__(super().__mul__,       y, False)
     __rmul__        = lambda self,y: self.__fixed_arithmetic__(super().__rmul__,      y, False)
     __imul__        = lambda self,y: self.__fixed_arithmetic__(super().__imul__,      y, False)
@@ -158,7 +160,7 @@ class numfi(np.ndarray):
     __ifloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__ifloordiv__, y, False)
 
     __neg__         = lambda self:   numfi(-self.ndarray, like=self)
-    __invert__      = lambda self:   numfi(~self.ndarray, like=self)
+    __invert__      = lambda self:   numfi(-self.ndarray, like=self) # NOTE: `~` only works on integer/boolean, and is same as __neg__
     __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self)
     __mod__         = lambda self,y: numfi(self.ndarray %  y, like=self)
     # bit wise operation use self.int and convert back
