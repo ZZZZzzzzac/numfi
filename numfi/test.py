@@ -18,7 +18,6 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
 
-
         x = numfi([1,2,3],1,16,8)[0]
         self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
@@ -47,7 +46,7 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.rounding, T.rounding)
         self.assertEqual(x.overflow, T.overflow)
         self.assertEqual(x.fixed, T.fixed)
-
+        # test us input_array as like 
         y = numfi(x)
         self.assertEqual(y.s, T.s)
         self.assertEqual(y.w, T.w)
@@ -61,7 +60,7 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.rounding, 'floor')
         self.assertEqual(x.overflow, 'wrap')
         self.assertEqual(x.fixed, True)
-
+        # test priority
         y = numfi(np.arange(10),0,22,like=x)
         self.assertEqual(y.s, 0)
         self.assertEqual(y.w, 22)
@@ -221,7 +220,6 @@ class numfiTest(unittest.TestCase):
         q = [0.814723686393179,0.905791937075619,0.126986816293506]
         a = numfi(q,1,16,8)
         a3 = a / 0.3333
-        print(a3.ndarray)
         self.assertTrue(np.all(a3==[2.449218750000000 ,  2.718750000000000 ,  0.386718750000000]))
         self.assertEqual(a3.s, 1)
         self.assertEqual(a3.w, 16)
@@ -232,11 +230,20 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(aa.w, 16)
         self.assertEqual(aa.f, 4)
 
+    def test_iop(self):
+        x = numfi(1.12345,1,16,7)
+        x += 0.5231
+        self.assertEqual(x,1.6484375)
+        self.assertEqual(x.w,16)
+        self.assertEqual(x.f,7)
+
     def test_fixed_M(self):
         q = [0.814723686393179,0.905791937075619,0.126986816293506]
         a = numfi(q,1,16,8,fixed=True)
         a3 = a / 0.3333
         self.assertTrue(np.all(a3==[2.449218750000000 ,  2.718750000000000 ,  0.386718750000000]))
+        self.assertEqual(a3.w,16)
+        self.assertEqual(a3.f,8)
         
     def test_neg(self):
         x = numfi([1,2,3],1,16,8)
@@ -253,13 +260,13 @@ class numfiTest(unittest.TestCase):
 
     def test_invert(self):
         x = numfi([1,2,3],1,16,8)
-        self.assertTrue(np.all(-x==[-1,-2,-3]))
+        self.assertTrue(np.all(~x==[-1,-2,-3]))
         self.assertEqual(x.s,1)
         self.assertEqual(x.w,16)
         self.assertEqual(x.f,8)
 
         x = numfi([1,2,3],0,16,8)
-        self.assertTrue(np.all(-x==[0,0,0]))
+        self.assertTrue(np.all(~x==[0,0,0]))
         self.assertEqual(x.s,0)
         self.assertEqual(x.w,16)
         self.assertEqual(x.f,8)
@@ -268,9 +275,9 @@ class numfiTest(unittest.TestCase):
         x = numfi([0,1+1/77,-3-52/123],1,16,8)
         y = x**3
         self.assertTrue(np.all(y==[  0.        ,   1.03515625, -40.06640625]))
-        self.assertEqual(y.s,x.s)
-        self.assertEqual(y.w,x.w)
-        self.assertEqual(y.f,x.f)
+        self.assertEqual(y.s,1)
+        self.assertEqual(y.w,16)
+        self.assertEqual(y.f,8)
     
     def test_bitwise(self):
         n = np.array([0b1101,0b1001,0b0001,0b1111])/2**8
