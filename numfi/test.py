@@ -151,7 +151,7 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x_plus_y.w, 17)        
         self.assertEqual(x_plus_y.f, 8)
 
-        x_plus_256 = x + np.int64([256])
+        x_plus_256 = x + np.int64([256]) # will convert 256 to numfi(256,1,16,8) and will saturate to 127.99609375
         self.assertTrue(np.all(x_plus_256==[128.9960937500000, 129.9960937500000, 130.9960937500000, 131.9960937500000]))
         self.assertEqual(x_plus_256.w, 17)
         self.assertEqual(x_plus_256.f, 8)

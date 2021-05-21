@@ -22,12 +22,42 @@ or you can just copy [numfi.py](https://github.com/ZZZZzzzzac/numfi/blob/master/
 from numfi import numfi
 
 # numfi(array=[], signed=1, bits_word=32, bits_frac=16, rounding='round', overflow='wrap')
-x = numfi(np.random.rand(3,3),1,16,8) 
+x = numfi(np.random.rand(3),1,16,8) 
+# numfi.__repr__() return brief description of numfi object: x => s16/8-r/s
+# s for 'signed', followed by word bits and fraction bits, r/s for 'round' and 'saturate` for rounding/overflow method
 
 # any arithmetic operation with numfi will return a numfi object with proper precision and value
-y = x + 1 
-z = x * 2
-w = np.sin(x)
+# By overloading operators, numfi object can do fixed-point arithmetic easily:
+y = x + 1
+y = [1] - x
+y = x * np.random.rand(3)
+y = numfi([1,0,0.1234],1,21,15) / x
+y = -x
+y = x ** 0.5
+y = x % 3
+y = x & 0b101
+y = x | 0b100
+y = x ^ 0b001
+y = x << 4
+y = x >> 2
+y = x > 0.5
+y = x >= 0.5
+y = x == x
+y = x <= np.ones(3)
+y = x < [1,1,1]
+...
+
+# By inheriting from numpy.ndarray, numfi object can be used just like normal numpy array, and return same numfi object back
+y = np.sin(x)
+y = x[x>1]
+y = x.sum()
+y = x.reshape(3,1)
+plt.plot(x)
+pandas.DataFrame(x)
+numpy.convolve(x,np.ones(4))
+numpy.fft.fft(x,n=512)
+for i in x:
+    print(i)
 ...
 ```
 ## Document

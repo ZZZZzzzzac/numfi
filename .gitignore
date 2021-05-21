@@ -1,12 +1,12 @@
 .vscode
+.pypirc
 __pycache__
 /build/
 /site/
-dist
+/dist/
 *.ipynb
 *.egg-info
 *.pdf
-refact.py
-build&install.bat
-unittest.bat
+*.bat
 debug.py
+refact.py

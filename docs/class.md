@@ -1,6 +1,6 @@
 # class numfi(numpy.ndarray)
 
-## Create new numfi object: 
+## Create new numfi object
 
 ```python
 numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', like=None, fixed=False)
@@ -13,7 +13,7 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
 
 - `s`: *any*, default:`1`  
 
-    signed or not, will be evaluate as a boolean value  
+    signed or not, will be evaluate as a 0 for unsigned or 1 for signed 
 
 - `w`: *`int`*, default:`32`  
 
@@ -21,11 +21,12 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
 
 - `f`: *`int`*, default:`16`  
 
-    bits of fraction, must be non negative integer. Note that unlike matlab, negative fraction length is not supported
+    bits of fraction, must be non negative integer.  
+    *Note that unlike matlab, negative fraction length is not supported*
 
 - `rounding`: `str`, default:`'round'`  
 
-    one of `'round'`/`'floor'`, used during quantization    
+    one of `'round'`/`'floor'`/`'ceil'`/`'zero'`, used during quantization    
 
     - `'round'`: use np.round(), round towards nearest integer 
     - `'floor'`: use np.floor(), round towards negative infinity  
@@ -38,8 +39,8 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
     one of `'wrap'`/`'saturate'`, used during quantization
 
     - `'wrap'`: overflow/underflow will wrap to opposite side
-    - `'saturate'`: overflow/underflow will saturate at max/min value possible  
-&nbsp;&nbsp;
+    - `'saturate'`: overflow/underflow will saturate at max/min value possible       
+&nbsp;&nbsp;  
     
 - `like`: `numfi`/None, default:`None`
 
@@ -49,7 +50,7 @@ numfi(array=[], s=None, w=None, f=None, rounding='round', overflow='saturate', l
 
     if `fixed` is `True`, word bits and fraction bits will not grow during fixed-point arithmetic, otherwise both will grow to keep full result precision. For details see [fixed-point arithmetic]()
 
-Example:
+Example:  
 ```python
 x = numfi(1)
 x = numfi([1,2,3],1,16,8)
@@ -57,18 +58,15 @@ x = numfi(np.arange(100),0,22,11,rounding='floor',overflow='saturate')
 y = numfi(np.zeros((3,3)),like=x)
 ```
 
-## numfi properities
+## numfi class properities
 
 - `numfi.s, numfi.w, numfi.f, numfi.rounding, numfi.overflow, numfi.fixed`  
 correspoding attributes in numfi object creation. See above for details.  
-*Note: these properities should be read only but not protected in code for simplicity. To change these properities one should use numfi creation to create new object*
-```python
-x = numfi([1,2,3],1,16,8)
-new_x = numfi(x,s=0,like=x)
-```
+*Note: these properities are read only. To change these properities one should use `numfi.requantize()`*
 
 - `numfi.ndarray`  
-the underlying data of numfi object. a `numpy.ndarray` with `dtype=np.float64`
+the underlying data of numfi object. a `numpy.ndarray` with `dtype=np.float64`  
+*Note: numfi.ndarray is read only, assignment is not allowed*
 
 - `numfi.int`  
 the integer representation of numfi object, a `numpy.ndarray` with `dtype=np.int64`
@@ -81,7 +79,7 @@ the binary str representation('0' and '1') of numfi object, a `numpy.ndarray` wi
 the hexadecimal str representation of numfi object.
 
 - `numfi.i`   
-the integer bits of numfi object, equal to `numfi.w-numfi.f`
+the integer bits of numfi object  
 
 - `numfi.upper` / `numfi.lower`  
 the upper / lower bound of numfi object based on currently word/fraction bits setting
@@ -89,3 +87,15 @@ the upper / lower bound of numfi object based on currently word/fraction bits se
 - `numfi.precision`  
 the smallest step of numfi object, equal to `2**-numfi.f`
 
+## numfi class method 
+
+- `numfi.requantize(self, s=None, w=None, f=None, rounding='round', overflow='saturate', like=None, fixed=False)`  
+requantize a numfi object with new arguments, those arguments which are not defined will use original argument. Return a new numfi object
+
+    ```python
+    x = numfi([1],1,16,8) # x is s16/8-r/s
+    y = x.requantize(s=0,rounding='floor',fixed=True) # y is Fu16/8-f/s
+    ```
+
+- `numfi.base_repr(self, base=2, frac_point=False)`  
+convert numfi's integer representation(numfi.int) to `base` string representation, `numfi.bin/bin_/hex` call this method

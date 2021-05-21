@@ -2,4 +2,4 @@ site_name: My Docs
 nav:
   - Home: 'index.md'
   - numfi Class: 'class.md'
-  - how numfi do fixed-point arithmetic: 'arithmetic.md'
+  - Overloaded arithmetic operators: 'arithmetic.md'
