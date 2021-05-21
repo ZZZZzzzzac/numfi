@@ -149,10 +149,13 @@ class numfi(np.ndarray):
         elif name == 'mul':
             result = numfi(func(y_fi), s, self.w+y_fi.w, self.f+y_fi.f, like=self) 
         elif name == 'div':
-            if isinstance(y,numfi):
-                result = numfi(func(y).ndarray, s, max(self.w,y.w), self.f-y.f, like=self) 
-            else:
-                result = numfi(func(y).ndarray, like=self) 
+            if self.fixed or in_place or not isinstance(y, numfi):
+                return numfi(func(y).ndarray, like=self)
+            else:        
+                if y.fixed:
+                    return numfi(func(y).ndarray, like=y)
+                else:
+                    return numfi(func(y).ndarray, s, max(self.w,y.w), self.f-y.f, like=self) 
         # note that quantization is not needed for full precision mode here, new w/f is larger so no precision lost or overflow
         if self.fixed or in_place: # if operator is in-place, bits won't grow
             return numfi(result,like=self) # if fixed, quantize full precision result to fixed length

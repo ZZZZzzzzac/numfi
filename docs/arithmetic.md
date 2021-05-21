@@ -1,12 +1,37 @@
 # Overloaded arithmetic operators
 ## basic arithmetic
-TODO
 ```python 
-y = x + 1
-y = [1] - x
-y = x * np.random.rand(3)
-y = numfi([1,0,0.1234],1,21,15) / x
+z = x + 1
+z = [1] - x
+z = x * np.random.rand(3)
+z = numfi([1,0,0.1234],1,21,15) / x
 ```
+For basic arithmetic operators of numfi object `x`, if secondary operand `y` is not numfi, it will first convert `y` to numfi with same setting as `x` then do the rest arithmetic.  
+
+If one of the operands, `x` or `y` has `fixed=True`, then the result will keep same quantization setting unchanged, otherwise it will follow rules below:  (*In any case, rounding/overflow/fixed will keep unchanged*)
+
+### ADD/SUB
+```python
+new_s = 1 if x.s or y.s else 0
+new_w = max(x.i,y.i) + max(x.f,y.f) + new_s + 1
+new_f = max(x.f,y.f)
+```
+### MUL
+```python
+new_s = 1 if x.s or y.s else 0
+new_w = x.w + y.w
+new_f = x.f + y.f
+```
+
+### DIV
+```python
+new_s = 1 if x.s or y.s else 0
+new_w = max(x.w, y.w)
+new_f = x.f - y.f
+```
+*division is the most complicit part, in practice we usually avoid division and use multiply instead, and the full precision result usually cannot be represented by fixed-point*
+
+
 ## other arithmetic
 ```python
 y = -x          <==>  numfi(-x.ndarray, like=x)
