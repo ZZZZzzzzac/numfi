@@ -66,5 +66,5 @@ Details can be found here: [https://numfi.readthedocs.io/en/latest/?](https://nu
 ## License
 The project is licensed under the MIT license.
 
-## [Benchmark](.benchmark.ipynb)
+## [Benchmark](https://github.com/ZZZZzzzzac/numfi/blob/master/benchmark.ipynb)
 ![benchmark](./benchmark.jpg)
