@@ -4,6 +4,7 @@ __pycache__
 /build/
 /site/
 /dist/
+/docs/benchmark.png
 play.ipynb
 *.egg-info
 *.pdf
