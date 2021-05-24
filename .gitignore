@@ -4,9 +4,10 @@ __pycache__
 /build/
 /site/
 /dist/
-*.ipynb
+play.ipynb
 *.egg-info
 *.pdf
 *.bat
 debug.py
 refact.py
+benchmark.py
