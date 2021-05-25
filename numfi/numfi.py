@@ -147,7 +147,10 @@ class numfi(np.ndarray):
             f = max(self.f, y_fi.f)            
             result = numfi(func(y_fi), s, i+f+s+1, f, like=self)
         elif name == 'mul':
-            result = numfi(func(y_fi), s, self.w+y_fi.w, self.f+y_fi.f, like=self) 
+            if func.__name__ == '__matmul__':
+                result = numfi(func(y_fi), s, self.w+y_fi.w+1, self.f+y_fi.f, like=self) # equivalent to mul + add, then word length should be x.w+y.w+1
+            else:
+                result = numfi(func(y_fi), s, self.w+y_fi.w, self.f+y_fi.f, like=self) 
         elif name == 'div':
             if self.fixed or in_place or not isinstance(y, numfi):
                 return numfi(func(y).ndarray, like=self)
@@ -173,13 +176,13 @@ class numfi(np.ndarray):
     __mul__         = lambda self,y: self.__fixed_arithmetic__(super().__mul__,       y)
     __rmul__        = lambda self,y: self.__fixed_arithmetic__(super().__rmul__,      y)    
     __imul__        = lambda self,y: self.__fixed_arithmetic__(super().__imul__,      y)
+    __matmul__      = lambda self,y: self.__fixed_arithmetic__(super().__matmul__,    y)
     __truediv__     = lambda self,y: self.__fixed_arithmetic__(super().__truediv__,   y)
     __rtruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__rtruediv__,  y)  
     __itruediv__    = lambda self,y: self.__fixed_arithmetic__(super().__itruediv__,  y)  
     __floordiv__    = lambda self,y: self.__fixed_arithmetic__(super().__floordiv__,  y)
     __rfloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__rfloordiv__, y)
     __ifloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__ifloordiv__, y)
-    # TODO: __matmul__ @
 
     __neg__         = lambda self:   numfi(-self.ndarray, like=self)
     __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self)
