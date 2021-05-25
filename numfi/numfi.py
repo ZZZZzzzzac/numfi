@@ -4,7 +4,7 @@
 #########################
 
 #TODO: complex support?
-
+#TODO: sin(numfi) return error larger than sin(fxpmath), further study on __array_ufunc__ is needed
 import numpy as np 
 import warnings
 
@@ -179,12 +179,13 @@ class numfi(np.ndarray):
     __floordiv__    = lambda self,y: self.__fixed_arithmetic__(super().__floordiv__,  y)
     __rfloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__rfloordiv__, y)
     __ifloordiv__   = lambda self,y: self.__fixed_arithmetic__(super().__ifloordiv__, y)
+    # TODO: __matmul__ @
 
     __neg__         = lambda self:   numfi(-self.ndarray, like=self)
-    __invert__      = lambda self:   numfi(-self.ndarray, like=self) # NOTE: `~` only works on integer/boolean, and is same as __neg__
     __pow__         = lambda self,y: numfi(self.ndarray ** y, like=self)
     __mod__         = lambda self,y: numfi(self.ndarray %  y, like=self)
     # bit wise operation use self.int and convert back
+    __invert__      = lambda self:   numfi((~self.int) * self.precision, like=self) # bitwise invert in two's complement 
     __and__         = lambda self,y: numfi((self.int &  y) * self.precision, like=self) 
     __or__          = lambda self,y: numfi((self.int |  y) * self.precision, like=self) 
     __xor__         = lambda self,y: numfi((self.int ^  y) * self.precision, like=self) 
