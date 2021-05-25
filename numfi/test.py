@@ -260,7 +260,7 @@ class numfiTest(unittest.TestCase):
 
     def test_invert(self):
         x = numfi([1,2,3],1,16,8)
-        self.assertTrue(np.all(~x==[-1,-2,-3]))
+        self.assertTrue(np.all(~x==[-1.00390625, -2.00390625, -3.00390625]))
         self.assertEqual(x.s,1)
         self.assertEqual(x.w,16)
         self.assertEqual(x.f,8)
