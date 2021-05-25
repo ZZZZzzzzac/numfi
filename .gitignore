@@ -9,6 +9,7 @@ play.ipynb
 *.egg-info
 *.pdf
 *.bat
+*.sh
 debug.py
 refact.py
 benchmark.py
