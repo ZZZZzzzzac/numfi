@@ -226,9 +226,14 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(a3.f, 8)
 
         aa = a/numfi(q,1,8,4)
-        self.assertTrue(np.all(aa==[1.000000000000000 ,  1.062500000000000 ,  1.062500000000000]))
-        self.assertEqual(aa.w, 16)
-        self.assertEqual(aa.f, 4)
+        self.assertTrue(np.all(aa==[1.004882812500000 ,  1.035644531250000 ,  1.031250000000000]))
+        self.assertEqual(aa.w, 25)
+        self.assertEqual(aa.f, 12)
+
+        b = numfi(3, 1, 7, 4)
+        c = numfi(0.015625, 1, 10, 9)
+        self.assertTrue(c/b == 0.005126953125)
+        self.assertTrue(b/c == 192.0)
 
     def test_iop(self):
         x = numfi(1.12345,1,16,7)
