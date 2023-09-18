@@ -1,1 +1,1 @@
-from .numfi import numfi, numqi
+from .numfi import numfi

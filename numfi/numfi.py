@@ -35,14 +35,21 @@ def do_overflow(iarray, s, w, f, OverflowAction):
         raise ValueError(f"invaild OverflowAction: {OverflowAction}")
     return iarray
 
+def get_best_precision(x, s, w):
+    x = np.asarray(x, dtype=np.float64)
+    if np.size(x) and np.max(np.abs(x)) > 0:
+        return int(w - np.floor(np.log2(np.max(np.abs(x)))) - 1 - s)
+    else:
+        return 15
+
 class numfi_tmp(np.ndarray):
     def __new__(cls, array=[], s=None, w=None, f=None, **kwargs):
         # priority: explicit like > array
         like = kwargs.get('like', array)
         # priority: explicit args > like.attr > default(1,32,16,'Nearest',Saturate,False)
         s = round(s) if isinstance(s, (int, float, np.integer, np.floating)) else getattr(like, 's', 1)
-        w = round(w) if isinstance(w, (int, float, np.integer, np.floating)) else getattr(like, 'w', 32)
-        f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', 16)
+        w = round(w) if isinstance(w, (int, float, np.integer, np.floating)) else getattr(like, 'w', 16)
+        f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', get_best_precision(array,s,w))
         RoundingMethod = kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest')) 
         OverflowAction = kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate'))
         FullPrecision = bool(kwargs.get('FullPrecision',getattr(like, 'FullPrecision', True)))
@@ -71,10 +78,10 @@ class numfi_tmp(np.ndarray):
 
     def __array_finalize__(self, obj):
         self._s = getattr(obj, 's', 1)
-        self._w = getattr(obj, 'w', 32)
-        self._f = getattr(obj, 'f', 16)
-        self._RoundingMethod = getattr(obj, 'RoundingMethod', 'round')
-        self._OverflowAction = getattr(obj, 'OverflowAction', 'saturate')
+        self._w = getattr(obj, 'w', 16)
+        self._f = getattr(obj, 'f', get_best_precision(obj, self.s, self.w))
+        self._RoundingMethod = getattr(obj, 'RoundingMethod', 'Nearest')
+        self._OverflowAction = getattr(obj, 'OverflowAction', 'Saturate')
         self._FullPrecision = getattr(obj, 'FullPrecision', True)
 
     s                   = property(lambda self: self._s)
@@ -215,27 +222,11 @@ class numfi(numfi_tmp):
                     w = max(self.w, y_fi.w)
                     f = self.f - y_fi.f
 
-        a = func(self.double, y_float)
-        result = fi(a, s, w, f, like=self)
+        float_result = func(self.double, y_float)
         # note that quantization is not needed for full precision mode, new w/f is larger so no precision lost or overflow
         if not (self.FullPrecision or in_place): # if operator is in-place, bits won't grow
-            return fi(result,like=self) # if fixed, quantize full precision result to shorter length
+            return fi(float_result, like=self) # if fixed, quantize full precision result to shorter length
         elif isinstance(y,numfi_tmp) and not y.FullPrecision:
-            return fi(result,like=y)            
+            return fi(float_result, like=y)            
         else: 
-            return result
-        
-class numqi(numfi):
-    """fixed point class that holds integer in memory """
-    @staticmethod
-    def __quantize__(array, s, w, f, RoundingMethod, OverflowAction):
-        return numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
-    @property
-    def int(self):
-        return self.ndarray
-    @property
-    def double(self):
-        return self.ndarray.astype(np.float64) * self.precision
-    def __fixed_arithmetic__(self, func, y):
-        result = super().__fixed_arithmetic__(func,y)
-        return result
+            return fi(float_result, s, w, f, like=self)
