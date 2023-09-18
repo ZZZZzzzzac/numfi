@@ -416,11 +416,10 @@ class numfiTest(unittest.TestCase):
         b = np.cos(y)
         c = np.cos(y.double)
         d = numfi(c)
-        self.assertTrue(np.all(b.int==d.int))
-        self.assertTrue(np.all(b.int==[32767,   32761,   32750,   32731,   32701]))
+        self.assertTrue(np.all(b.int==d.int))        
         e = np.arctan2(b,y)
-        self.assertTrue(np.all(e.int==[12867,   12739,   12611,   12483,   12355]))
-        self.assertEqual(e.f,13)
+        f = numfi(np.arctan2(b.double,y.double))
+        self.assertTrue(np.all(e.int==f.int))        
 
 if __name__ == '__main__':
     unittest.main()

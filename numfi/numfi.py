@@ -37,9 +37,9 @@ def do_overflow(iarray, s, w, f, OverflowAction):
 
 def get_best_precision(x, s, w):
     x = np.asarray(x, dtype=np.float64)
-    maximum = np.max(x)
-    minimum = np.min(x)    
-    if np.size(x) and not (maximum==minimum==0):
+    maximum = np.max(x) if np.size(x) else 0
+    minimum = np.min(x) if np.size(x) else 0 
+    if not (maximum==minimum==0):
         if maximum > -minimum:
             return int(w - np.floor(np.log2(maximum)) - 1 - s)
         else:
@@ -157,8 +157,6 @@ class numfi_tmp(np.ndarray):
     
     def __fixed_arithmetic__(self, func, y):
         raise NotImplementedError("__fixed_arithmetic__")
-    def __float_arithmetic__(self, func, y):
-        raise NotImplementedError("__float_arithmetic__")
     
     __round__       = lambda self,y=0: np.round(self,y)
 
