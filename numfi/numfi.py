@@ -37,8 +37,13 @@ def do_overflow(iarray, s, w, f, OverflowAction):
 
 def get_best_precision(x, s, w):
     x = np.asarray(x, dtype=np.float64)
-    if np.size(x) and np.max(np.abs(x)) > 0:
-        return int(w - np.floor(np.log2(np.max(np.abs(x)))) - 1 - s)
+    maximum = np.max(x)
+    minimum = np.min(x)    
+    if np.size(x) and not (maximum==minimum==0):
+        if maximum > -minimum:
+            return int(w - np.floor(np.log2(maximum)) - 1 - s)
+        else:
+            return int(w - np.ceil(np.log2(-minimum)) - s)
     else:
         return 15
 
@@ -56,7 +61,8 @@ class numfi_tmp(np.ndarray):
         s = int(bool(s))
         assert w > 0, f"w must be positive integer, but get {w}"
         
-        obj = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction).view(cls)
+        iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
+        obj = iarray.view(cls)
         obj._s, obj._w, obj._f = s, w, f
         obj._RoundingMethod = RoundingMethod
         obj._OverflowAction = OverflowAction
@@ -83,6 +89,11 @@ class numfi_tmp(np.ndarray):
         self._RoundingMethod = getattr(obj, 'RoundingMethod', 'Nearest')
         self._OverflowAction = getattr(obj, 'OverflowAction', 'Saturate')
         self._FullPrecision = getattr(obj, 'FullPrecision', True)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, out=None, **kwargs):
+        args = [i.double if isinstance(i, numfi_tmp) else i for i in inputs]            
+        results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
+        return type(self)(results)
 
     s                   = property(lambda self: self._s)
     w                   = property(lambda self: self._w)
@@ -137,7 +148,7 @@ class numfi_tmp(np.ndarray):
         return re + f' {signed}{self.w}/{self.f}-{self.RoundingMethod[0]}/{self.OverflowAction[0]}'
 
     def __getitem__(self,key):
-        value = self.double.__getitem__(key) # return class with shape (1,) instead of single int/float value
+        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
         return value if isinstance(value, numfi_tmp) else type(self)(value, like=self)
 
     def __setitem__(self, key, value):

@@ -58,6 +58,11 @@ class numfiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 4)
 
+        x = numfi(-1024)
+        self.assertEqual(x.s, 1)
+        self.assertEqual(x.w, 16)
+        self.assertEqual(x.f, 5)
+
         x = numfi(102400)
         self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
@@ -402,6 +407,20 @@ class numfiTest(unittest.TestCase):
         self.assertTrue(np.all((x!=1)==[True,True,True,False,True]))
         self.assertTrue(np.all((x<=1)==[True,True,True,True,False]))
         self.assertTrue(np.all((x<1)==[True,True,True,False,False]))
+
+    def test_ufunc(self):
+        x = np.array([0,np.pi/2,np.pi,3*np.pi/2,2*np.pi])/100
+        y = numfi(x,1,16,9)
+        z = y[0]
+        a = np.cos(x)
+        b = np.cos(y)
+        c = np.cos(y.double)
+        d = numfi(c)
+        self.assertTrue(np.all(b.int==d.int))
+        self.assertTrue(np.all(b.int==[32767,   32761,   32750,   32731,   32701]))
+        e = np.arctan2(b,y)
+        self.assertTrue(np.all(e.int==[12867,   12739,   12611,   12483,   12355]))
+        self.assertEqual(e.f,13)
 
 if __name__ == '__main__':
     unittest.main()
