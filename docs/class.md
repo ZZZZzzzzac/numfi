@@ -1,6 +1,7 @@
 # class numfi(numpy.ndarray)
 
-This class is inherited from `numpy.ndarray`, and add some attributes and methods to support fixed-point arithmetic. The main perpose is to mimic Matlab's `fi` object, and 
+This class is inherited from `numpy.ndarray`, and add some attributes and methods to support fixed-point arithmetic. It's properties and methods are mimic Matlab's `fi` class, make porting code between Matlab and Python easier.(An easy trick is `import numfi as fi`)
+
 ## Create new numfi object
 
 ```python

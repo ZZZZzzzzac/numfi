@@ -96,7 +96,13 @@ y = x.mean()    <==>  numfi(x.double.mean())
 
 ufunc function will use `numfi.double` as operand, then convert to `numfi` object. If `FullPrecision=True`, it will find best fraction precision with floating point result, if not, it will keep same s/w/f as operand.
 
-# How numfi do fixed-point arithmetic
+Note this new s/w/f behavior is different from Matlab's, since in Matlab each ufunc has it own `embedded@fi` version, which is not possible in python/numpy.
+
+Example: `np.cos(numfi(0))` is `s16/14` and equal to `1` exactly, which need two integer bit to represent. (remember upper limit of one integer bit is `1 - 2**-f`, not `1`)
+
+But in Matlab `cos(fi(0))` is `s16/15` and equal to `0.999969482421875`. Because Matlab's `cos` function `R2023a\toolbox\fixedpoint\fixedpoint\+embedded\@fi\cos.m` explicitly set answer to `s16/15`. Which make sense since `-1<=cos<=1`, but sacrifice some precision when answer is exactly 1.
+
+## How numfi do fixed-point arithmetic
 
 In theory, to accurately simulate fixed-point arithmetic bit by bit, we should store integers in memory and perform the fixed-point arithmetic in the integer domain. However there are some problems with this approach:
 
