@@ -1,52 +1,5 @@
 import numpy as np 
 
-def do_rounding(iarray, RoundingMethod):
-    if RoundingMethod in ('Nearest', 'Round', 'Convergent'):  # round towards nearest integer, this method is faster than np.round()
-        iarray[iarray>0] += 0.5
-        iarray[iarray<0] -= 0.5
-    elif RoundingMethod == 'Floor': # round towards -inf
-        iarray = np.floor(iarray)
-    elif RoundingMethod == 'Zero': # round towards zero, fastest rounding method
-        pass
-    elif RoundingMethod == 'Ceiling':  # round towards +inf
-        iarray = np.ceil(iarray)
-    else:
-        raise ValueError(f"invaild RoundingMethod: {RoundingMethod}")
-    return iarray.astype(np.int64)
-
-def do_overflow(iarray, s, w, f, OverflowAction):
-    iarray = iarray.astype(np.int64)
-    upper =  (1<<(w-s)) - 1 
-    lower = -(1<<(w-s)) if s else 0
-    up =  iarray > upper
-    low = iarray < lower
-    if OverflowAction == 'Error':
-        if np.any(up | low):
-            raise OverflowError(f"Overflow! array[{iarray.min()} ~ {iarray.max()}] > fi({s},{w},{f})[{lower} ~ {upper}]")
-    elif OverflowAction == 'Wrap':
-        mask = (1<<w)
-        iarray &= (mask-1)
-        if s:
-            iarray[iarray>=(1<<(w-1))] |= (-mask)   
-    elif OverflowAction == 'Saturate':
-        iarray[up] = upper
-        iarray[low] = lower
-    else:
-        raise ValueError(f"invaild OverflowAction: {OverflowAction}")
-    return iarray
-
-def get_best_precision(x, s, w):
-    x = np.asarray(x, dtype=np.float64)
-    maximum = np.max(x) if np.size(x) else 0
-    minimum = np.min(x) if np.size(x) else 0 
-    if not (maximum==minimum==0):
-        if maximum > -minimum:
-            return int(w - np.floor(np.log2(maximum)) - 1 - s)
-        else:
-            return int(w - np.ceil(np.log2(-minimum)) - s)
-    else:
-        return 15
-
 class numfi_tmp(np.ndarray):
     def __new__(cls, array=[], s=None, w=None, f=None, **kwargs):
         # priority: explicit like > array
@@ -54,7 +7,7 @@ class numfi_tmp(np.ndarray):
         # priority: explicit args > like.attr > default(1,32,16,'Nearest',Saturate,False)
         s = round(s) if isinstance(s, (int, float, np.integer, np.floating)) else getattr(like, 's', 1)
         w = round(w) if isinstance(w, (int, float, np.integer, np.floating)) else getattr(like, 'w', 16)
-        f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', get_best_precision(array,s,w))
+        f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', numfi_tmp.get_best_precision(array,s,w))
         RoundingMethod = kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest')) 
         OverflowAction = kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate'))
         FullPrecision = bool(kwargs.get('FullPrecision',getattr(like, 'FullPrecision', True)))
@@ -77,15 +30,15 @@ class numfi_tmp(np.ndarray):
         farray = farray.reshape(1,) if farray.shape == () else farray # scalar to 1d array
         iarray = farray * 2**f
         if not(isinstance(array, numfi_tmp) and f >= array.f): # no rounding only if new_f >= old_f
-            iarray = do_rounding(iarray, RoundingMethod)
+            iarray = numfi_tmp.do_rounding(iarray, RoundingMethod)
         if not(isinstance(array, numfi_tmp) and i >= array.i and array.s == s): # no overflow only if new_i >= old_i and new_s == old_s
-            iarray = do_overflow(iarray, s, w, f, OverflowAction)
+            iarray = numfi_tmp.do_overflow(iarray, s, w, f, OverflowAction)
         return iarray
 
     def __array_finalize__(self, obj):
         self._s = getattr(obj, 's', 1)
         self._w = getattr(obj, 'w', 16)
-        self._f = getattr(obj, 'f', get_best_precision(obj, self.s, self.w))
+        self._f = getattr(obj, 'f', numfi_tmp.get_best_precision(obj, self.s, self.w))
         self._RoundingMethod = getattr(obj, 'RoundingMethod', 'Nearest')
         self._OverflowAction = getattr(obj, 'OverflowAction', 'Saturate')
         self._FullPrecision = getattr(obj, 'FullPrecision', True)
@@ -93,7 +46,94 @@ class numfi_tmp(np.ndarray):
     def __array_ufunc__(self, ufunc, method, *inputs, out=None, **kwargs):
         args = [i.double if isinstance(i, numfi_tmp) else i for i in inputs]            
         results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
-        return type(self)(results)
+        return type(self)(results,self.s,self.w) if self.FullPrecision else type(self)(results, like=self)
+
+    def __repr__(self):
+        signed = 's' if self.s else 'u'
+        typename = type(self).__name__
+        re = typename + self.double.__repr__()[5:]
+        return re + f' {signed}{self.w}/{self.f}-{self.RoundingMethod[0]}/{self.OverflowAction[0]}'
+
+    def __getitem__(self,key):
+        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
+        return value if isinstance(value, numfi_tmp) else type(self)(value, like=self)
+
+    def __setitem__(self, key, value):
+        quantized = type(self)(value, like=self)
+        super().__setitem__(key, quantized)
+    
+    def __fixed_arithmetic__(self, func, y):
+        raise NotImplementedError("__fixed_arithmetic__")
+
+    @staticmethod
+    def do_rounding(iarray, RoundingMethod):
+        if RoundingMethod in ('Nearest', 'Round', 'Convergent'):  # round towards nearest integer, this method is faster than np.round()
+            iarray[iarray>0] += 0.5
+            iarray[iarray<0] -= 0.5
+        elif RoundingMethod == 'Floor': # round towards -inf
+            iarray = np.floor(iarray)
+        elif RoundingMethod == 'Zero': # round towards zero, fastest rounding method
+            pass
+        elif RoundingMethod == 'Ceiling':  # round towards +inf
+            iarray = np.ceil(iarray)
+        else:
+            raise ValueError(f"invaild RoundingMethod: {RoundingMethod}")
+        return iarray.astype(np.int64)
+    
+    @staticmethod
+    def do_overflow(iarray, s, w, f, OverflowAction):
+        iarray = iarray.astype(np.int64)
+        upper =  (1<<(w-s)) - 1 
+        lower = -(1<<(w-s)) if s else 0
+        up =  iarray > upper
+        low = iarray < lower
+        if OverflowAction == 'Error':
+            if np.any(up | low):
+                raise OverflowError(f"Overflow! array[{iarray.min()} ~ {iarray.max()}] > fi({s},{w},{f})[{lower} ~ {upper}]")
+        elif OverflowAction == 'Wrap':
+            mask = (1<<w)
+            iarray &= (mask-1)
+            if s:
+                iarray[iarray>=(1<<(w-1))] |= (-mask)   
+        elif OverflowAction == 'Saturate':
+            iarray[up] = upper
+            iarray[low] = lower
+        else:
+            raise ValueError(f"invaild OverflowAction: {OverflowAction}")
+        return iarray
+    
+    @staticmethod
+    def get_best_precision(x, s, w):
+        x = np.asarray(x, dtype=np.float64)
+        maximum = np.max(x) if np.size(x) else 0
+        minimum = np.min(x) if np.size(x) else 0 
+        if not (maximum==minimum==0):
+            if maximum > -minimum:
+                return int(w - np.floor(np.log2(maximum)) - 1 - s)
+            else:
+                return int(w - np.ceil(np.log2(-minimum)) - s)
+        else:
+            return 15
+
+    def base_repr(self, base=2, frac_point=False): # return ndarray with same shape and dtype = '<Uw' where w=self.w
+        if base == 2:            
+            def pretty_bin(i):
+                s = ''
+                b = np.binary_repr(i,width=self.w)
+                if self.s:
+                    s = f'{b[0]}'
+                    b = b[1:]
+                if self.i >= 0:
+                    return s + b[:self.i].ljust(self.i,'x') + '.' + b[self.i:]
+                else:
+                    return s + '.' + b.rjust(self.f,'x')  
+            func = pretty_bin if frac_point else lambda i: np.binary_repr(i,self.w)
+        else:
+            func = lambda i: np.base_repr(i,base=base)
+        if self.size>0:
+            return np.vectorize(func)(self.int)        
+        else:
+            return np.array([],dtype=f"<U{self.w}")
 
     s                   = property(lambda self: self._s)
     w                   = property(lambda self: self._w)
@@ -120,43 +160,6 @@ class numfi_tmp(np.ndarray):
     @property
     def double(self):
         raise NotImplementedError("double")
-
-    def base_repr(self, base=2, frac_point=False): # return ndarray with same shape and dtype = '<Uw' where w=self.w
-        if base == 2:            
-            def pretty_bin(i):
-                s = ''
-                b = np.binary_repr(i,width=self.w)
-                if self.s:
-                    s = f'{b[0]}'
-                    b = b[1:]
-                if self.i >= 0:
-                    return s + b[:self.i].ljust(self.i,'x') + '.' + b[self.i:]
-                else:
-                    return s + '.' + b.rjust(self.f,'x')  
-            func = pretty_bin if frac_point else lambda i: np.binary_repr(i,self.w)
-        else:
-            func = lambda i: np.base_repr(i,base=base)
-        if self.size>0:
-            return np.vectorize(func)(self.int)        
-        else:
-            return np.array([],dtype=f"<U{self.w}")
-
-    def __repr__(self):
-        signed = 's' if self.s else 'u'
-        typename = type(self).__name__
-        re = typename + self.double.__repr__()[5:]
-        return re + f' {signed}{self.w}/{self.f}-{self.RoundingMethod[0]}/{self.OverflowAction[0]}'
-
-    def __getitem__(self,key):
-        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
-        return value if isinstance(value, numfi_tmp) else type(self)(value, like=self)
-
-    def __setitem__(self, key, value):
-        quantized = type(self)(value, like=self)
-        super().__setitem__(key, quantized)
-    
-    def __fixed_arithmetic__(self, func, y):
-        raise NotImplementedError("__fixed_arithmetic__")
     
     __round__       = lambda self,y=0: np.round(self,y)
 
@@ -221,7 +224,7 @@ class numfi(numfi_tmp):
             f = max(f, y_fi.f)
             w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
         else:
-            y_fi = y if isinstance(y, numfi_tmp) else fi(y_float, s, w, w-s-np.ceil(np.log2(np.max(y_float))))
+            y_fi = y if isinstance(y, numfi_tmp) else fi(y_float, s, w, numfi_tmp.get_best_precision(y_float,s,w))
             y_float = y_fi.double
             if name == 'mul':
                 w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
