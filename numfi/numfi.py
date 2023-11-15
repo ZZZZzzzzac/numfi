@@ -129,7 +129,10 @@ class numfi_tmp(np.ndarray):
                     return s + '.' + b.rjust(self.f,'x')  
             func = pretty_bin if frac_point else lambda i: np.binary_repr(i,self.w)
         else:
-            func = lambda i: np.base_repr(i,base=base)
+            def func(i):
+                s = np.base_repr(i if i>=0 else i+(1<<self.w),base=base)
+                b = int(np.ceil(self.w/4))
+                return "0"*(b-len(s)) + s
         if self.size>0:
             return np.vectorize(func)(self.int)        
         else:
@@ -142,7 +145,7 @@ class numfi_tmp(np.ndarray):
     RoundingMethod      = property(lambda self: self._RoundingMethod)
     OverflowAction      = property(lambda self: self._OverflowAction)
     FullPrecision       = property(lambda self: self._FullPrecision)
-    precision           = property(lambda self: 2**-self.f)
+    precision           = property(lambda self: 2**-self.f)    
     bin                 = property(lambda self: self.base_repr(2))
     bin_                = property(lambda self: self.base_repr(2,frac_point=True))
     oct                 = property(lambda self: self.base_repr(8))
