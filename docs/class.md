@@ -1,6 +1,6 @@
 # class numfi(numpy.ndarray)
 
-This class is inherited from `numpy.ndarray`, and add some attributes and methods to support fixed-point arithmetic. It's properties and methods are mimic Matlab's `fi` class, make porting code between Matlab and Python easier.(An easy trick is `import numfi as fi`)
+This class is inherited from `numpy.ndarray`, add some attributes and methods to support fixed-point arithmetic. It's properties and methods are mimic Matlab's `fi` class, make porting code between Matlab and Python easier.(An easy trick is `import numfi as fi`)
 
 ## Create new numfi object
 
@@ -10,7 +10,7 @@ numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Sat
 
 - `array`: *(`int`/`float`/`list`/`numpy.ndarray`/`numfi`)*, default:`[]`  
 
-    Create a numfi object based on `array`. `array` will be passed to `np.asarray`, so it can be any vaild input of `np.asarray`.  
+    Create a numfi object based on `array`. `array` will be passed to `np.asarray`, so it can be any valid input of `np.asarray`.  
     If `array` is numfi object and `like` is not defined, will use `array` as template `like`
 
 - `s`: *any*, default:`1`  
@@ -23,14 +23,14 @@ numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Sat
 
 - `f`: *`int`*, default:`None`  
 
-    bits of fraction. If `f=None`, `numfi` will use the maximal percision that fit `array`. (which means allocating as many bits as possible to fraction bits of entire word without overflow, this may lead to negative `f` and `i`).
+    bits of fraction. If `f=None`, `numfi` will use the maximal precision that fit `array`. (which means allocating as many bits as possible to fraction bits of entire word without overflow, this may lead to negative `f` and `i`).
     Negative `f` and `i` are also supported like Matlab, see [fixed-point arithmetic](arithmetic.md) for details.
 
 - `RoundingMethod`: `str`, default:`'Nearest'`  
 
     How to round floating point value to integer, method name is same as Matlab's.
 
-  - `'Nearest', 'Round', 'Convergent'`: use np.round(), round towards nearest integer 
+  - `'Nearest', 'Round', 'Convergent'`: use np.round(), round towards nearest integer
   - `'Floor'`: use np.floor(), round towards negative infinity  
   - `'Ceiling'`: use np.ceil(), round towards to positive infinity
   - `'Zero'`: use astype(np.int64), round towards zero  
@@ -47,7 +47,7 @@ numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Sat
 
 - `like`: `numfi / None`, default:`None`
 
-    create new numfi from template `like`. if both keywords arguments and template `like` are given, new argument will have following priority:  **keywords > template(like) > default**
+    create new numfi from template `like`. if both keywords arguments and template `like` are given, new argument will have following priority:   **keywords > template(like) > default**
 
 - `FullPrecision`: bool, default:`True`
 
@@ -62,11 +62,11 @@ x = numfi(np.arange(100),0,22,11,RoundingMethod='Floor',OverflowAction='Saturate
 y = numfi(np.zeros((3,3)),like=x)
 ```
 
-## numfi class properities
+## numfi class properties
 
 - `s, w, f, RoundingMethod, OverflowAction, FullPrecision`  
-correspoding attributes in numfi object creation. See above for details.  
-*Note: these properities are read only, creat new numfi object with new properities if you need change them*
+Corresponding attributes in numfi object creation. See above for details.  
+*Note: these properties are read only, creat new numfi object with new properties if you need change them*
 
 - `i`
 the integer bits of numfi object, `i = w - s - f`.
@@ -104,7 +104,7 @@ convert numfi's integer representation(numfi.int) to `base` string representatio
 
 - `do_rounding(iarray, RoundingMethod)`
 Round `iarray` to integer with various method, see `RoundingMethod` above.
-*`iarray` is equal to `float_array * 2**f`, means integer repesenatation of `float_array`*
+*`iarray` is equal to `float_array * 2**f`, means integer representation of `float_array`*
 
 - `do_overflow(iarray, s, w, f, OverflowAction)`
 Do `OverflowAction` if `iarray` overflow, see `OverflowAction` above.

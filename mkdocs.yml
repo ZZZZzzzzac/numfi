@@ -1,4 +1,4 @@
-site_name: My Docs
+site_name: Numfi
 nav:
   - Home: 'index.md'
   - numfi Class: 'class.md'

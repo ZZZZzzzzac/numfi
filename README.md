@@ -14,11 +14,11 @@ Feature:
 
 **Prerequisite**: python3 and numpy
 
-```
+```bash
 pip install numfi
 ```
 
-or you can just copy [numfi.py](https://github.com/ZZZZzzzzac/numfi/blob/master/numfi/numfi.py) and do whatever you want, after all it's only 200 lines of code
+or you can just copy [numfi.py](https://github.com/ZZZZzzzzac/numfi/blob/master/numfi/numfi.py) and do whatever you want, after all it's only 200+ lines of code
 
 ## Quick start
 

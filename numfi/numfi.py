@@ -54,16 +54,12 @@ class numfi_tmp(np.ndarray):
         re = typename + self.double.__repr__()[5:]
         return re + f' {signed}{self.w}/{self.f}-{self.RoundingMethod[0]}/{self.OverflowAction[0]}'
 
-    def __getitem__(self,key):
-        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
-        return value if isinstance(value, numfi_tmp) else type(self)(value, like=self)
-
     def __setitem__(self, key, value):
         quantized = type(self)(value, like=self)
         super().__setitem__(key, quantized)
     
     def __fixed_arithmetic__(self, func, y):
-        raise NotImplementedError("__fixed_arithmetic__")
+        raise NotImplementedError("fixed_arithmetic")
 
     @staticmethod
     def do_rounding(iarray, RoundingMethod):
@@ -214,21 +210,20 @@ class numfi(numfi_tmp):
     @property
     def double(self):
         return self.ndarray
-  
+    def __getitem__(self,key):
+        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
+        return value if isinstance(value, numfi) else type(self)(value, like=self)
     def __fixed_arithmetic__(self, func, y):
         fi = type(self)
-        y_float = y
         s, w, f, i = self.s, self.w, self.f, self.i
         name = func.__name__[-5:-2] # last 3 words of operator name
         in_place = func.__name__[2] == 'i' # __ixxx__ are in place operation, like +=,-=,*=,/=
         if name == 'add' or name == 'sub':            
-            y_fi = y if isinstance(y, numfi_tmp) else fi(y,like=self)
-            y_float = y_fi.double
+            y_fi = y if isinstance(y, numfi) else fi(y,like=self)
             f = max(f, y_fi.f)
             w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
         else:
-            y_fi = y if isinstance(y, numfi_tmp) else fi(y_float, s, w, numfi_tmp.get_best_precision(y_float,s,w))
-            y_float = y_fi.double
+            y_fi = y if isinstance(y, numfi_tmp) else fi(y, s, w, numfi_tmp.get_best_precision(y,s,w))
             if name == 'mul':
                 w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
                 f = self.f + y_fi.f
@@ -237,7 +232,7 @@ class numfi(numfi_tmp):
                     w = max(self.w, y_fi.w)
                     f = self.f - y_fi.f
 
-        float_result = func(self.double, y_float)
+        float_result = func(self.double, y_fi.double)
         # note that quantization is not needed for full precision mode, new w/f is larger so no precision lost or overflow
         if not (self.FullPrecision or in_place): # if operator is in-place, bits won't grow
             return fi(float_result, like=self) # if fixed, quantize full precision result to shorter length
@@ -245,3 +240,63 @@ class numfi(numfi_tmp):
             return fi(float_result, like=y)            
         else: 
             return fi(float_result, s, w, f, like=self)
+        
+class numqi(numfi_tmp): 
+    """fixed point class that holds integer in memory"""
+    @staticmethod
+    def __quantize__(array, s, w, f, RoundingMethod, OverflowAction):
+        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
+        if w <= 64:
+            if w > 32:
+                array_int = array_int.astype(np.int64)
+            elif w > 16:
+                array_int = array_int.astype(np.int32)
+            elif w > 8:
+                array_int = array_int.astype(np.int16)
+            else:
+                array_int = array_int.astype(np.int8)
+        else:
+            raise TypeError("numqi only support w <= 64")
+        return array_int
+    @property
+    def int(self):
+        return self.ndarray
+    @property
+    def double(self):
+        return self.ndarray * self.precision 
+    def __getitem__(self,key):
+        value = super().__getitem__(key) # return class with shape (1,) instead of single int/float value
+        return type(self)(value.double, like=self) if isinstance(value, numfi_tmp) else type(self)(value * self.precision, like=self)
+    def __fixed_arithmetic__(self, func, y):
+        fi = type(self)
+        s, w, f, i = self.s, self.w, self.f, self.i
+        name = func.__name__[-5:-2] # last 3 words of operator name
+        in_place = func.__name__[2] == 'i' # __ixxx__ are in place operation, like +=,-=,*=,/=
+        if name == 'add' or name == 'sub':            
+            y_fi = y if isinstance(y, numfi_tmp) else fi(y,like=self)
+            f = max(f, y_fi.f)
+            w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
+            a = (self.int << (f-self.f)).astype(np.float64)
+            b = (y_fi.int << (f-y_fi.f)).astype(np.float64)
+            float_result = func(a, b) * (2**-f)
+        else:
+            if name == 'mul':
+                y_fi = y if isinstance(y, numfi_tmp) else fi(y, s, w, numfi_tmp.get_best_precision(y,s,w))
+                w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
+                f = self.f + y_fi.f
+                float_result = func(self.int.astype(np.float64), y_fi.int.astype(np.float64)) * (2**-f)
+            elif name == 'div':
+                y_fi = y if isinstance(y, numfi_tmp) else fi(y, s, w, numfi_tmp.get_best_precision(y,s,w))
+                if isinstance(y, numfi_tmp):            
+                    w = max(self.w, y_fi.w)
+                    f = self.f - y_fi.f
+                float_result = func(self.double, y_fi.double)    
+            
+        # note that quantization is not needed for full precision mode, new w/f is larger so no precision lost or overflow
+        if not (self.FullPrecision or in_place): # if operator is in-place, bits won't grow
+            return fi(float_result, like=self) # if fixed, quantize full precision result to shorter length
+        elif isinstance(y,numfi_tmp) and not y.FullPrecision:
+            return fi(float_result, like=y)            
+        else: 
+            return fi(float_result, s, w, f, like=self)
+
