@@ -4,7 +4,7 @@ type RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zer
 type OverflowAction_Enum = Literal['Error','Wrap','Saturate']
 
 class numfi_tmp(np.ndarray):
-    def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, **kwargs) -> 'numfi_tmp':
+    def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, quantize:bool=True, **kwargs) -> 'numfi_tmp':
         # priority: explicit like > array
         like = kwargs.get('like', array)
         # priority: explicit args > like.attr > default(1,32,16,'Nearest',Saturate,False)
@@ -16,7 +16,7 @@ class numfi_tmp(np.ndarray):
         FullPrecision = bool(kwargs.get('FullPrecision',getattr(like, 'FullPrecision', True)))
         assert w > 0, f"w must be positive integer, but get {w}"
 
-        iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
+        iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
         obj = iarray.view(cls)
         obj._s, obj._w, obj._f = s, w, f
         obj._RoundingMethod = RoundingMethod
@@ -27,15 +27,21 @@ class numfi_tmp(np.ndarray):
     @staticmethod
     def __quantize__(array:np.ndarray, s:int, w:int, f:int,
                      RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum) -> np.ndarray:
-        i = w - f - s
-        farray = array.double if isinstance(array, numfi_tmp) else np.asarray(array, dtype=np.float64)
-        farray = farray.reshape(1,) if farray.shape == () else farray # scalar to 1d array
-        iarray = farray * 2**f
-        if not(isinstance(array, numfi_tmp) and f >= array.f): # no rounding only if new_f >= old_f
-            iarray = numfi_tmp.do_rounding(iarray, RoundingMethod)
-        if not(isinstance(array, numfi_tmp) and i >= array.i and array.s == s): # no overflow only if new_i >= old_i and new_s == old_s
-            iarray = numfi_tmp.do_overflow(iarray, s, w, f, OverflowAction)
+                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
+        array = np.reshape(array,(1,)) if np.shape(array) == () else np.asarray(array) # scalar to 1d array
+        if quantize:
+            i = w - f - s
+            farray = array.double if isinstance(array, numfi_tmp) else np.asarray(array, dtype=np.float64)
+            iarray = farray * 2**f
+            if not(isinstance(array, numfi_tmp) and f >= array.f): # no rounding only if new_f >= old_f
+                iarray = numfi_tmp.do_rounding(iarray, RoundingMethod)
+            if not(isinstance(array, numfi_tmp) and i >= array.i and array.s == s): # no overflow only if new_i >= old_i and new_s == old_s
+                iarray = numfi_tmp.do_overflow(iarray, s, w, f, OverflowAction)
+        else:
+            iarray = np.asarray(array).astype(np.int64)
+            iarray &= (1<<w)-1 # truncate to w bits
+            if s:
+                iarray[iarray >= (1<<(w-1))] -= (1<<w) # two's complement
         return iarray
 
     def __array_finalize__(self, obj:'numfi_tmp'):
@@ -53,11 +59,11 @@ class numfi_tmp(np.ndarray):
             results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
             results &= (1<<self.w)-1
             results[results >= (1<<(self.w-1))] -= (1<<self.w)
-            return type(self)(results*self.precision,like=self)
+            return type(self)(results, like=self, quantize=False)
         else:
             args = [i.double if isinstance(i, numfi_tmp) else i for i in inputs]
             results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
-            return type(self)(results,self.s,self.w) if self.FullPrecision else type(self)(results, like=self)
+            return type(self)(results, self.s, self.w) if self.FullPrecision else type(self)(results, like=self)
 
     def __repr__(self) -> str:
         signed = 's' if self.s else 'u'
@@ -197,7 +203,7 @@ class numfi_tmp(np.ndarray):
     __neg__         = lambda self:   type(self)(-self.double,      like=self)
     __pow__         = lambda self,y: type(self)( self.double ** y, like=self)
     __mod__         = lambda self,y: type(self)( self.double %  y, like=self)
-    __invert__      = lambda self:   type(self)((~self.int     ) * self.precision, like=self) # bitwise invert in two's complement
+    __invert__      = lambda self:   type(self)(~self.int, like=self, quantize=False)
     # two numfi comparison: `x>y == x.__gt__(self,y) == x.double>y == y<x.double == y.__lt__(self,x.double) == y.double < x.double` => two float comparison
     __eq__          = lambda self,y: self.double == y
     __ne__          = lambda self,y: self.double != y
@@ -212,8 +218,8 @@ class numfi(numfi_tmp):
     @staticmethod
     def __quantize__(array:np.ndarray, s:int, w:int, f:int,
                      RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum) -> np.ndarray:
-        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
+                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
+        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
         return array_int * (2**-f)
 
     @property
@@ -255,8 +261,8 @@ class numqi(numfi_tmp):
     @staticmethod
     def __quantize__(array:np.ndarray, s:int, w:int, f:int,
                      RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum) -> np.ndarray:
-        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction)
+                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
+        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
         if w > 64:
             raise TypeError("numqi only support w <= 64")
         elif w > 32:

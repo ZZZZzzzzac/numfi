@@ -407,16 +407,19 @@ class fiTest(unittest.TestCase):
 
     def test_invert(self):
         x = fi([1,2,3],1,16,8)
-        self.assertTrue(np.all(~x==[-1.00390625, -2.00390625, -3.00390625]))
-        self.assertEqual(x.s,1)
-        self.assertEqual(x.w,16)
-        self.assertEqual(x.f,8)
+        x_invert_bin = np.array([np.binary_repr(~i,x.w) for i in x.int])
+        y = ~x 
+        self.assertTrue(np.all(y.bin==x_invert_bin))
+        self.assertEqual(y.s,1)
+        self.assertEqual(y.w,16)
+        self.assertEqual(y.f,8)
 
         x = fi([1,2,3],0,16,8)
-        self.assertTrue(np.all(~x==[0,0,0]))
-        self.assertEqual(x.s,0)
-        self.assertEqual(x.w,16)
-        self.assertEqual(x.f,8)
+        y = ~x
+        self.assertTrue(np.all(y.bin==x_invert_bin))
+        self.assertEqual(y.s,0)
+        self.assertEqual(y.w,16)
+        self.assertEqual(y.f,8)
 
     def test_pow(self):
         x = fi([0,1+1/77,-3-52/123],1,16,8)
@@ -457,6 +460,14 @@ class fiTest(unittest.TestCase):
         e = np.arctan2(b,y)
         f = fi(np.arctan2(b.double,y.double))
         self.assertTrue(np.all(e.int==f.int))        
+
+    def test_fi_quantize(self):
+        n = np.array([0b11101,0b11001,0b10001,0b11111])
+        x = fi(n,1,5,3,quantize=False)
+        self.assertTrue(np.all(x.bin == ['11101','11001','10001','11111']))
+
+        y = fi(n,1,4,2,quantize=False)
+        self.assertTrue(np.all(y.bin == ['1101','1001','0001','1111']))
 
 if __name__ == '__main__':
     unittest.main()
