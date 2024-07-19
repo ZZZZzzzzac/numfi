@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from numfi import numqi as fi   # change numfi to numqi to test numqi
+from numfi import numfi as fi   # change numfi to numqi to test numqi
 # TODO: add more test
 class fiTest(unittest.TestCase):
     def test_create_fi(self):        
@@ -238,6 +238,35 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x.f, 8)
         self.assertAlmostEqual(x, s84)
 
+    def test_getitem(self):
+        a = fi(np.random.randn(3,3),1,14,6)
+        b = a[0]
+        self.assertTrue(isinstance(b, type(a)))
+        self.assertEqual(b.s, a.s)
+        self.assertEqual(b.w, a.w)
+        self.assertEqual(b.f, a.f)
+        self.assertEqual(b.RoundingMethod, a.RoundingMethod)
+        self.assertEqual(b.OverflowAction, a.OverflowAction)
+        self.assertTrue(np.all(b.int==a.int[0]))
+
+        b = a[1:2]
+        self.assertTrue(isinstance(b, type(a)))
+        self.assertEqual(b.s, a.s)
+        self.assertEqual(b.w, a.w)
+        self.assertEqual(b.f, a.f)
+        self.assertEqual(b.RoundingMethod, a.RoundingMethod)
+        self.assertEqual(b.OverflowAction, a.OverflowAction)
+        self.assertTrue(np.all(b.int==a.int[1:2]))
+
+        b = a[1,0:2]
+        self.assertTrue(isinstance(b, type(a)))
+        self.assertEqual(b.s, a.s)
+        self.assertEqual(b.w, a.w)
+        self.assertEqual(b.f, a.f)
+        self.assertEqual(b.RoundingMethod, a.RoundingMethod)
+        self.assertEqual(b.OverflowAction, a.OverflowAction)
+        self.assertTrue(np.all(b.int==a.int[1,0:2]))
+
     def test_add(self):
         x = fi([1,2,3,4],1,16,8)
         x_plus_1 = x + 1
@@ -401,10 +430,11 @@ class fiTest(unittest.TestCase):
         n = np.array([0b1101,0b1001,0b0001,0b1111])/2**8
         x = fi(n,1,16,8)
         self.assertTrue(np.all((x & 0b1100).int==[0b1100,0b1000,0b0000,0b1100]))
-        self.assertTrue(np.all((x | 0b0101).int==[0b1101,0b1101,0b0101,0b1111]))
-        self.assertTrue(np.all((x ^ 0b0110).int==[0b1011,0b1111,0b0111,0b1001]))
+        self.assertTrue(np.all((0b0101 | x).int==[0b1101,0b1101,0b0101,0b1111]))
+        self.assertTrue(np.all((x ^      x).int==[0b0000,0b0000,0b0000,0b0000]))
         self.assertTrue(np.all((x >>     1).int==[0b0110,0b0100,0b0000,0b0111]))
         self.assertTrue(np.all((x <<     1).int==[0b11010,0b10010,0b00010,0b11110]))
+        self.assertTrue(np.all((x <<    14).int==[16384, 16384, 16384, -16384])) # shift overflow
 
     def test_logical(self):
         x = fi([-2,-1,0,1,2])

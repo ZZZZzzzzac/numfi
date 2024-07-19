@@ -42,15 +42,16 @@ y = numfi([1,0,0.1234],1,21,15) / x
 y = -x
 y = x ** 0.5
 y = x % 3
+# comparison return np.array of bool, just like normal np.array
 y = x > 0.5
-y = x >= 0.5
+y = x >= numfi([1,0,0.1234],1,21,15)
 y = x == x
 y = x <= np.ones(3)
 y = x < [1,1,1]
-# integer only operation work with integer form of x
+# bitwise operation work with integer form of x
 y = x & 0b101 
-y = x | 0b100
-y = x ^ 0b001
+y = 0b100 | x   # order of operands doesn't matter
+y = x ^ x       # two numfi object can also be used in bitwise operations
 y = x << 4
 y = x >> 2
 ...
