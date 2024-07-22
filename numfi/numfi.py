@@ -238,7 +238,7 @@ class numfi(numfi_tmp):
             f = max(f, y_fi.f)
             w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
         else:
-            y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w, numfi_tmp.get_best_precision(y,s,w))
+            y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
             if name == 'mul':
                 w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
                 f = self.f + y_fi.f
@@ -263,16 +263,17 @@ class numqi(numfi_tmp):
                      RoundingMethod:RoundingMethod_Enum,
                      OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
         array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
+        sign = "i" if s else "u"
         if w > 64:
             raise TypeError("numqi only support w <= 64")
         elif w > 32:
-            array_int = array_int.astype(np.int64)
+            array_int = array_int.astype(sign+"8")
         elif w > 16:
-            array_int = array_int.astype(np.int32)
+            array_int = array_int.astype(sign+"4")
         elif w > 8:
-            array_int = array_int.astype(np.int16)
+            array_int = array_int.astype(sign+"2")
         else:
-            array_int = array_int.astype(np.int8)
+            array_int = array_int.astype(sign+"1")
         return array_int
 
     @property
@@ -286,31 +287,32 @@ class numqi(numfi_tmp):
         s, w, f, i = self.s, self.w, self.f, self.i
         name = func.__name__[-5:-2] # last 3 words of operator name
         in_place = func.__name__[2] == 'i' # __ixxx__ are in place operation, like +=,-=,*=,/=
+        quantize = False
         if name == 'add' or name == 'sub':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y,like=self)
             f = max(f, y_fi.f)
             w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
-            a = (self.int << (f-self.f)).astype(np.float64)
-            b = (y_fi.int << (f-y_fi.f)).astype(np.float64)
-            float_result = func(a, b) * (2**-f)
-        else:
-            if name == 'mul':
-                y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w, numfi_tmp.get_best_precision(y,s,w))
-                w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
-                f = self.f + y_fi.f
-                float_result = func(self.int.astype(np.float64), y_fi.int.astype(np.float64)) * (2**-f)
-            elif name == 'div':
-                y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w, numfi_tmp.get_best_precision(y,s,w))
-                if isinstance(y, numfi_tmp):
-                    w = max(self.w, y_fi.w)
-                    f = self.f - y_fi.f
-                float_result = func(self.double, y_fi.double)
+            a = (self.int.astype(np.int64) << (f-self.f))
+            b = (y_fi.int.astype(np.int64) << (f-y_fi.f))
+            result = func(a, b)
+        elif name == 'mul':
+            y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
+            w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
+            f = self.f + y_fi.f
+            result = func(self.int.astype(np.int64), y_fi.int.astype(np.int64))
+        elif name == 'div':
+            y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
+            if isinstance(y, numfi_tmp):
+                w = max(self.w, y_fi.w)
+                f = self.f - y_fi.f
+            result = func(self.double, y_fi.double)
+            quantize = True
 
         # note that quantization is not needed for full precision mode, new w/f is larger so no precision lost or overflow
         if not (self.FullPrecision or in_place): # if operator is in-place, bits won't grow
-            return type(self)(float_result, like=self) # if fixed, quantize full precision result to shorter length
+            return type(self)(result, like=self, quantize=quantize) # if fixed, quantize full precision result to shorter length
         elif isinstance(y,numfi_tmp) and not y.FullPrecision:
-            return type(self)(float_result, like=y)
+            return type(self)(result, like=y, quantize=quantize)
         else:
-            return type(self)(float_result, s, w, f, like=self)
+            return type(self)(result, s, w, f, like=self, quantize=quantize)
 
