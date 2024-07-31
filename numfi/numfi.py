@@ -16,7 +16,11 @@ class numfi_tmp(np.ndarray):
         FullPrecision = bool(kwargs.get('FullPrecision',getattr(like, 'FullPrecision', True)))
         assert w > 0, f"w must be positive integer, but get {w}"
 
-        iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
+        if np.iscomplexobj(array):
+            iarray = cls.__quantize__(np.real(array), s, w, f, RoundingMethod, OverflowAction, quantize) + \
+                1j * cls.__quantize__(np.imag(array), s, w, f, RoundingMethod, OverflowAction, quantize)
+        else:            
+            iarray = cls.__quantize__(array,          s, w, f, RoundingMethod, OverflowAction, quantize)
         obj = iarray.view(cls)
         obj._s, obj._w, obj._f = s, w, f
         obj._RoundingMethod = RoundingMethod
@@ -27,8 +31,13 @@ class numfi_tmp(np.ndarray):
     @staticmethod
     def __quantize__(array:np.ndarray, s:int, w:int, f:int,
                      RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
-        array = np.reshape(array,(1,)) if np.shape(array) == () else np.asarray(array) # scalar to 1d array
+                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:        
+        if np.shape(array) == ():
+            array = np.reshape(array,(1,)) 
+        if isinstance(array, numfi_tmp):
+            array = array.double
+        else:
+            np.asarray(array) # scalar to 1d array
         if quantize:
             i = w - f - s
             farray = array.double if isinstance(array, numfi_tmp) else np.asarray(array, dtype=np.float64)
@@ -53,7 +62,7 @@ class numfi_tmp(np.ndarray):
         self._FullPrecision:bool = getattr(obj, 'FullPrecision', True)
 
     def __array_ufunc__(self, ufunc:np.ufunc, method, *inputs, out=None, **kwargs) -> 'numfi_tmp':
-        # use numpy's ufunc instead of overload bitwise operator like `__or__`, to support more situation like `0b101 | x` and `x & y`
+        # use numpy's ufunc instead of overload bitwise operator like `__or__`, to support situation like `0b101 | x` and `x & y`
         if 'bitwise' in ufunc.__name__ or 'shift' in ufunc.__name__: 
             args = [i.int if isinstance(i, numfi_tmp) else i for i in inputs]
             results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
@@ -64,6 +73,12 @@ class numfi_tmp(np.ndarray):
             args = [i.double if isinstance(i, numfi_tmp) else i for i in inputs]
             results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
             return type(self)(results, self.s, self.w) if self.FullPrecision else type(self)(results, like=self)
+        
+    def __array_function__(self, func, types, args, kwargs):
+        args = [i.double if isinstance(i, numfi_tmp) else i for i in args]
+        kwargs = {k: v.double if isinstance(v, numfi_tmp) else v for k, v in kwargs.items()}
+        results = func(*args, **kwargs)
+        return type(self)(results, self.s, self.w) if self.FullPrecision else type(self)(results, like=self)
 
     def __repr__(self) -> str:
         signed = 's' if self.s else 'u'
@@ -77,7 +92,7 @@ class numfi_tmp(np.ndarray):
 
     def __setitem__(self, key, value):
         quantized = type(self)(value, like=self)
-        super().__setitem__(key, quantized)
+        super().__setitem__(key, quantized)            
 
     def __fixed_arithmetic__(self, func, y):
         raise NotImplementedError("fixed_arithmetic")
@@ -121,9 +136,14 @@ class numfi_tmp(np.ndarray):
 
     @staticmethod
     def get_best_precision(x, s:int, w:int) -> int:
-        x = np.asarray(x, dtype=np.float64)
-        maximum = np.max(x) if np.size(x) else 0
-        minimum = np.min(x) if np.size(x) else 0
+        if np.iscomplexobj(x):
+            x = np.asarray(x, dtype=np.complex128)
+            maximum = max(np.max(x.real), np.max(x.imag)) if np.size(x) else 0
+            minimum = min(np.min(x.real), np.min(x.imag)) if np.size(x) else 0
+        else:
+            x = np.asarray(x, dtype=np.float64)
+            maximum = np.max(x) if np.size(x) else 0
+            minimum = np.min(x) if np.size(x) else 0
         if not (maximum==minimum==0):
             if maximum > -minimum:
                 return int(w - np.floor(np.log2(maximum)) - 1 - s)
@@ -258,24 +278,6 @@ class numfi(numfi_tmp):
 
 class numqi(numfi_tmp):
     """fixed point class that holds integer in memory"""
-    @staticmethod
-    def __quantize__(array:np.ndarray, s:int, w:int, f:int,
-                     RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
-        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
-        sign = "i" if s else "u"
-        if w > 64:
-            raise TypeError("numqi only support w <= 64")
-        elif w > 32:
-            array_int = array_int.astype(sign+"8")
-        elif w > 16:
-            array_int = array_int.astype(sign+"4")
-        elif w > 8:
-            array_int = array_int.astype(sign+"2")
-        else:
-            array_int = array_int.astype(sign+"1")
-        return array_int
-
     @property
     def int(self) -> np.ndarray:
         return self.ndarray
@@ -292,14 +294,14 @@ class numqi(numfi_tmp):
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y,like=self)
             f = max(f, y_fi.f)
             w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
-            a = (self.int.astype(np.int64) << (f-self.f))
-            b = (y_fi.int.astype(np.int64) << (f-y_fi.f))
+            a = (self.int * 2**(f-self.f))
+            b = (y_fi.int * 2**(f-y_fi.f))
             result = func(a, b)
         elif name == 'mul':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
             w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
             f = self.f + y_fi.f
-            result = func(self.int.astype(np.int64), y_fi.int.astype(np.int64))
+            result = func(self.int, y_fi.int)
         elif name == 'div':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
             if isinstance(y, numfi_tmp):

@@ -469,5 +469,11 @@ class fiTest(unittest.TestCase):
         y = fi(n,1,4,2,quantize=False)
         self.assertTrue(np.all(y.bin == ['1101','1001','0001','1111']))
 
+    def test_complex(self):
+        x = np.random.randn(10) + 1j*np.random.randn(10)
+        a = fi(x,1,16)
+        b = fi(x.tolist(),1,16)
+        self.assertTrue(np.all(np.abs(x-b.double)))
+
 if __name__ == '__main__':
     unittest.main()
