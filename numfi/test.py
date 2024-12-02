@@ -222,7 +222,7 @@ class fiTest(unittest.TestCase):
         self.assertAlmostEqual(u, x)
 
     def test_setitem(self):
-        a = 1.99999999
+        a = [1.99, 2.00, 2.01]
         s168 = fi(a, 1, 16, 8)
         s3216 = fi(a, 1, 32, 16)
         s84 = fi(a, 1, 8, 4)
@@ -231,12 +231,12 @@ class fiTest(unittest.TestCase):
         x[0] = s3216[0]
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
-        self.assertAlmostEqual(x, s168)
+        self.assertTrue(np.allclose(x, s168))
 
-        x[0] = s84[0]
+        x[0:2] = s84[0:2]
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
-        self.assertAlmostEqual(x, s84)
+        self.assertTrue(np.allclose(x[0:2], s84[0:2]))
 
     def test_getitem(self):
         a = fi(np.random.randn(3,3),1,14,6)
@@ -474,6 +474,14 @@ class fiTest(unittest.TestCase):
         a = fi(x,1,16)
         b = fi(x.tolist(),1,16)
         self.assertTrue(np.all(np.abs(x-b.double)))
+    
+    def test_complex_fft(self):
+        x = np.random.randn(10) + 1j*np.random.randn(10)
+        a = fi(x,1,32,16)
+        fa = np.fft.fft(a)
+        b = a.double
+        fb = np.fft.fft(b)
+        self.assertTrue(np.all(np.abs(fa-fb)<1e-5))
 
 if __name__ == '__main__':
     unittest.main()

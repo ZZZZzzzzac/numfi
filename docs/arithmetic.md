@@ -1,3 +1,12 @@
+# How to convert floating-point to fixed-point
+
+## implicit conversion
+
+```python
+x = numfi([1,0,0.1234],1,21,15)
+```
+
+
 # Overloaded arithmetic operators
 
 ## basic arithmetic
@@ -27,22 +36,25 @@ Answer is unsigned(s=0) if and only if each operand is unsigned. Otherwise, answ
 ### ADD/SUB
 
 ```python
-f = max(x.f, y.f)
-w = max(x.i, y.i) + f + s + (1 if (x.s==y.s) else 2) # need extra bit to convert unsigned to signed
+z = x + y or x - y
+z.f = max(x.f, y.f)
+z.w = max(x.i, y.i) + f + s + (1 if (x.s==y.s) else 2) # need extra bit to convert unsigned to signed
 ```
 
 ### MUL
 
 ```python
-w = x.w + y.w
-f = x.f + y.f
+z = x * y
+z.w = x.w + y.w
+z.f = x.f + y.f
 ```
 
 ### DIV
 
 ```python
-w = max(x.w, y.w)
-f = x.f - y.f
+z = x / y
+z.w = max(x.w, y.w)
+z.f = x.f - y.f
 ```
 
 Division in fixed point arithmetic has many different definition, here we use the same definition as Matlab.
@@ -61,15 +73,16 @@ arithmetic operators other than `add/sub/mul/div` will use `numfi.double` as ope
 ## bitwise operation
 
 ```python
-y = ~x          <==>  numfi((~x.int)        * x.precision, like=x)
-y = x & 0b101   <==>  numfi((x.int & 0b101) * x.precision, like=x) 
-y = x | 0b100   <==>  numfi((x.int | 0b100) * x.precision, like=x) 
-y = x ^ 0b001   <==>  numfi((x.int ^ 0b001) * x.precision, like=x) 
-y = x << 4      <==>  numfi((x.int << 4)    * x.precision, like=x) 
-y = x >> 2      <==>  numfi((x.int >> 2)    * x.precision, like=x) 
+y = ~x          <==>  numfi((~x.int)       * x.precision, like=x)
+y = x & 0b101   <==>  numfi(np.bitwise_and(x.int, 0b101), like=x) 
+y = x | 0b100   <==>  numfi(np.bitwise_or (x.int, 0b101), like=x) 
+y = x ^ 0b001   <==>  numfi(np.bitwise_xor(x.int, 0b101), like=x) 
+y = x << 4      <==>  numfi(np.left_shift (x, 4)        , like=x) 
+y = x >> 2      <==>  numfi(np.right_shift(x, 2)        , like=x) 
 ```
 
 Bitwise operators will use `numfi.int` as operand, then convert back to float value then numfi object
+In old version I use `x.int & 0b101`, but it won't work when `0b101 & x`, so I change to numpy's corresponding functions.
 
 ## logical comparsion
 
@@ -114,3 +127,4 @@ numfi use 'real-value' `np.float64` as underlying data type instead of integer, 
 
 Speed and compatibility is the reason why numfi use floating-point arithmetic to 'simulate' fixed-point arithmetic. Unlike embedded chips, for modern desktop CPU there is no significant preformance differece between floating-point and integer arithmetic. And as a `numpy.ndarray` subclass, numfi object using 'real-value' floating-point data can be used in any floating-point algorithm flawlessly, take the advantage of python's dynamic type feature
 
+Now numfi also has a subclass `numqi` that hold integer value in memory, it will do arithmetic in integer domain. This one is still in WIP stage and not guroanteed to bit match with `real fixed point arithmetic`, although I'm improving it.

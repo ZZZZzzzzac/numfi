@@ -11,21 +11,26 @@ class numfi_tmp(np.ndarray):
         s = round(s) if isinstance(s, (int, float, np.integer, np.floating)) else getattr(like, 's', 1)
         w = round(w) if isinstance(w, (int, float, np.integer, np.floating)) else getattr(like, 'w', 16)
         f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', numfi_tmp.get_best_precision(array,s,w))
-        RoundingMethod = kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest'))
-        OverflowAction = kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate'))
-        FullPrecision = bool(kwargs.get('FullPrecision',getattr(like, 'FullPrecision', True)))
+        RoundingMethod =     kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest'))
+        OverflowAction =     kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate'))
+        FullPrecision = bool(kwargs.get('FullPrecision', getattr(like, 'FullPrecision',  True)))
+        iscpx =         bool(kwargs.get('iscpx',         getattr(like, 'iscpx',          False)))
         assert w > 0, f"w must be positive integer, but get {w}"
 
+        array = np.asarray(array)
         if np.iscomplexobj(array):
-            iarray = cls.__quantize__(np.real(array), s, w, f, RoundingMethod, OverflowAction, quantize) + \
-                1j * cls.__quantize__(np.imag(array), s, w, f, RoundingMethod, OverflowAction, quantize)
-        else:            
-            iarray = cls.__quantize__(array,          s, w, f, RoundingMethod, OverflowAction, quantize)
+            iscpx = True
+        if iscpx:
+            iarray = cls.__quantize__(array.real, s, w, f, RoundingMethod, OverflowAction, quantize) + \
+                1j * cls.__quantize__(array.imag, s, w, f, RoundingMethod, OverflowAction, quantize)
+        else:
+            iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
         obj = iarray.view(cls)
         obj._s, obj._w, obj._f = s, w, f
         obj._RoundingMethod = RoundingMethod
         obj._OverflowAction = OverflowAction
         obj._FullPrecision = FullPrecision
+        obj._iscpx = iscpx
         return obj
 
     @staticmethod
@@ -33,11 +38,9 @@ class numfi_tmp(np.ndarray):
                      RoundingMethod:RoundingMethod_Enum,
                      OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:        
         if np.shape(array) == ():
-            array = np.reshape(array,(1,)) 
+            array = np.reshape(array,(1,)) # scalar to 1d array
         if isinstance(array, numfi_tmp):
             array = array.double
-        else:
-            np.asarray(array) # scalar to 1d array
         if quantize:
             i = w - f - s
             farray = array.double if isinstance(array, numfi_tmp) else np.asarray(array, dtype=np.float64)
@@ -60,6 +63,7 @@ class numfi_tmp(np.ndarray):
         self._RoundingMethod:RoundingMethod_Enum = getattr(obj, 'RoundingMethod', 'Nearest')
         self._OverflowAction:OverflowAction_Enum = getattr(obj, 'OverflowAction', 'Saturate')
         self._FullPrecision:bool = getattr(obj, 'FullPrecision', True)
+        self._iscpx:bool = getattr(obj, 'iscpx', False)
 
     def __array_ufunc__(self, ufunc:np.ufunc, method, *inputs, out=None, **kwargs) -> 'numfi_tmp':
         # use numpy's ufunc instead of overload bitwise operator like `__or__`, to support situation like `0b101 | x` and `x & y`
@@ -85,6 +89,9 @@ class numfi_tmp(np.ndarray):
         typename = type(self).__name__
         re = typename + self.double.__repr__()[5:]
         return re + f' {signed}{self.w}/{self.f}-{self.RoundingMethod[0]}/{self.OverflowAction[0]}'
+    
+    def __str__(self) -> str:
+        return self.__repr__()
 
     def __getitem__(self, key):
         key = slice(key,key+1,None) if isinstance(key,(int,np.integer)) else key  # in case of key is single integer
@@ -92,6 +99,8 @@ class numfi_tmp(np.ndarray):
 
     def __setitem__(self, key, value):
         quantized = type(self)(value, like=self)
+        if isinstance(key, (int,np.integer)): # suppress DeprecationWarning
+            key = slice(key,key+1,None)
         super().__setitem__(key, quantized)            
 
     def __fixed_arithmetic__(self, func, y):
@@ -193,6 +202,7 @@ class numfi_tmp(np.ndarray):
     ndarray:np.ndarray                  = property(lambda self: self.view(np.ndarray))
     RoundingMethod:RoundingMethod_Enum  = property(lambda self: self._RoundingMethod)
     OverflowAction:OverflowAction_Enum  = property(lambda self: self._OverflowAction)
+    iscpx                               = property(lambda self: self._iscpx)
 
     @property
     def int(self) -> np.ndarray:
@@ -244,9 +254,13 @@ class numfi(numfi_tmp):
 
     @property
     def int(self) -> np.ndarray:
+        if self.iscpx:
+            return (self.ndarray.view(np.float64) * 2**self.f).astype(np.int64)
         return (self.ndarray * 2**self.f).astype(np.int64)
     @property
     def double(self) -> np.ndarray:
+        if self.iscpx:
+            return self.ndarray.view(np.complex128)
         return self.ndarray
 
     def __fixed_arithmetic__(self, func, y):
@@ -283,6 +297,8 @@ class numqi(numfi_tmp):
         return self.ndarray
     @property
     def double(self) -> np.ndarray:
+        if self.iscpx:
+            return (self.ndarray * self.precision).view(np.complex128)
         return self.ndarray * self.precision
 
     def __fixed_arithmetic__(self, func, y):
