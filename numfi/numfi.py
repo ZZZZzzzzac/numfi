@@ -93,9 +93,15 @@ class numfi_tmp(np.ndarray):
     def __str__(self) -> str:
         return self.__repr__()
 
+    def __iter__(self):
+        for i in range(self.shape[0]):
+            yield self[i]
+
     def __getitem__(self, key):
-        key = slice(key,key+1,None) if isinstance(key,(int,np.integer)) else key  # in case of key is single integer
-        return super().__getitem__(key) # return class with shape (1,) instead of single int/float value
+        v = super().__getitem__(key)
+        if issubclass(type(v),numfi_tmp):
+            return v
+        return type(self)(v, like=self) # return scalar as numfi
 
     def __setitem__(self, key, value):
         quantized = type(self)(value, like=self)

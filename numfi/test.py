@@ -239,15 +239,26 @@ class fiTest(unittest.TestCase):
         self.assertTrue(np.allclose(x[0:2], s84[0:2]))
 
     def test_getitem(self):
-        a = fi(np.random.randn(3,3),1,14,6)
+        a = fi(np.random.randn(3,3),1,14,6) # 2d
         b = a[0]
         self.assertTrue(isinstance(b, type(a)))
+        self.assertTrue(b.shape == (3,)) # 1d
         self.assertEqual(b.s, a.s)
         self.assertEqual(b.w, a.w)
         self.assertEqual(b.f, a.f)
         self.assertEqual(b.RoundingMethod, a.RoundingMethod)
         self.assertEqual(b.OverflowAction, a.OverflowAction)
         self.assertTrue(np.all(b.int==a.int[0]))
+
+        b = a[0,0] # scalar, but still (1,) numfi
+        self.assertTrue(isinstance(b, type(a)))
+        self.assertTrue(b.shape == (1,))
+        self.assertEqual(b.s, a.s)
+        self.assertEqual(b.w, a.w)
+        self.assertEqual(b.f, a.f)
+        self.assertEqual(b.RoundingMethod, a.RoundingMethod)
+        self.assertEqual(b.OverflowAction, a.OverflowAction)
+        self.assertTrue(np.all(b.int==a.int[0,0]))
 
         b = a[1:2]
         self.assertTrue(isinstance(b, type(a)))
