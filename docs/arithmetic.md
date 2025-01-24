@@ -1,15 +1,16 @@
-# How to convert floating-point to fixed-point
+# How two fixed-point number do arithmetic
 
-## implicit conversion
+## fixed-point arithmetic in integer domain
 
-```python
-x = numfi([1,0,0.1234],1,21,15)
-```
+Fixed-point number is integer, so it is natural that fixed-point arithmetic is done in integer domain.  
 
+Addition(`+`) and subtraction(`-`) can only be done when the radix points of the two fixed-point number with same fraction bits `f`. Then add/sub two integers directly. Multiplication(`*`) and division(`\`) can be done directly, even when fraction bits is different.  
 
-# Overloaded arithmetic operators
+But the key of fixed-point arithmetic is to find what is the format(`s/w/f`) of result, which will be discussed later.
 
-## basic arithmetic
+## fixed-point arithmetic in numfi
+
+But numfi does not do fixed-point arithmetic in integer domain, it uses floating-point number arithmetic then convert back to integer, with new `s/w/f`.
 
 ```python 
 z = x + 1

@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from numfi import numfi as fi   # change numfi to numqi to test numqi
+from numfi import numqi as fi   # change numfi to numqi to test numqi
 # TODO: add more test
 class fiTest(unittest.TestCase):
     def test_create_fi(self):        
@@ -170,6 +170,7 @@ class fiTest(unittest.TestCase):
         self.assertTrue(np.all(x==[0.363281250000000,1.273437500000000,-1.816406250000000,-0.910156250000000,0,1.089843750000000,-1.816406250000000,-0.726562500000000]))
         x = fi([1.1,2.2,3.3,4.4,5.5],0,6,4,OverflowAction='Wrap')
         self.assertTrue(np.all(x==[1.125000000000000,2.187500000000000,3.312500000000000,0.375000000000000,1.500000000000000]))
+        self.assertRaises(OverflowError, lambda: fi([1,2,3],1,10,8,OverflowAction='Error'))
 
     def test_bin_hex(self):
         x = fi(-3.785,1,14,6, RoundingMethod='Zero')
@@ -290,19 +291,19 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x_plus_y.w, 17)        
         self.assertEqual(x_plus_y.f, 8)
 
-        x += np.int64([256])
-        self.assertTrue(np.all(x==[128.99609375, 129.99609375, 130.99609375, 131.99609375]))
-        self.assertEqual(x.w, 17)
-        self.assertEqual(x.f, 8)
+        z = x + np.int64([256])
+        self.assertTrue(np.all(z==[128.99609375, 129.99609375, 130.99609375, 131.99609375]))
+        self.assertEqual(z.w, 17)
+        self.assertEqual(z.f, 8)
 
         z = x + fi(np.pi,0,14,11)
         self.assertEqual(z.s, 1)
-        self.assertEqual(z.w, 22)
+        self.assertEqual(z.w, 21)
         self.assertEqual(z.f, 11)
 
         q = x + fi(np.pi,1,14,11)
         self.assertEqual(q.s, 1)
-        self.assertEqual(q.w, 21)
+        self.assertEqual(q.w, 20)
         self.assertEqual(q.f, 11)
 
         x = [ 0.52679058, -0.28613927,  0.04448513]

@@ -29,9 +29,9 @@ from numfi import numfi as fi
 import numpy as np
 
 # numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Saturate')
-x = fi(np.random.rand(3),1,16,8) 
+x = fi([1,0,0.1234],1,16,8) 
 # print(numfi) return brief description of numfi object: x => s16/8-N/S
-# s for 'signed', followed by word bits and fraction bits, N/S for 'Nearest' and 'Saturate` for rounding/overflow method
+# s for 'signed', u for 'unsigned', followed by word bits(16) and fraction bits(8), N/S for 'Nearest' and 'Saturate` for rounding/overflow method
 
 # any arithmetic operation with numfi will return a numfi object with proper precision and value
 # By overloading operators, numfi object can do fixed-point arithmetic easily:
@@ -39,7 +39,7 @@ x = fi(np.random.rand(3),1,16,8)
 # normal arithmetic operation work with float form of x
 y = x + 1
 y = [1] - x
-y = x * np.random.rand(3)
+y = x * [3,0,-3]
 y = fi([1,0,0.1234],1,21,15) / x
 y = -x
 y = x ** 0.5
@@ -58,15 +58,17 @@ y = x << 4
 y = x >> 2
 ...
 
-# By inheriting from numpy.ndarray, numfi object can be used just like normal numpy array, and return same numfi object back
+# numfi object can be used just like normal numpy array, and return same numfi object back
 y = np.sin(x)
 y = x[x>1]
 y = x.sum()
 y = x.reshape(3,1)
+np.convolve(x[0],np.ones(3))
+np.fft.fft(x,n=512)
 plt.plot(x)
 pandas.DataFrame(x)
-np.convolve(x,np.ones(4))
-np.fft.fft(x,n=512)
+f, t, Sxx = scipy.signal.spectrogram(x,nperseg=256,noverlap=128)
+plt.pcolormesh(t, f, Sxx, shading='gouraud')
 for i in x:
     print(i)
 ...

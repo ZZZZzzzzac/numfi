@@ -1,35 +1,28 @@
-# class numfi(numpy.ndarray)
+# class numfi
 
-This class is inherited from `numpy.ndarray`, add some attributes and methods to support fixed-point arithmetic. It's properties and methods are mimic Matlab's `fi` class, make porting code between Matlab and Python easier.(An easy trick is `import numfi as fi`)
+This class is inherited from meta class `numfi_tmp`, add some attributes and methods to support fixed-point arithmetic. Its properties and methods mimic Matlab's `fi` class, making it easier to port code between Matlab and Python.(An easy trick is `from numfi import numfi as fi`)
 
 ## Create new numfi object
 
 ```python
-numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Saturate', FullPrecision=True, like=None)
+numfi(array, s, w, f, RoundingMethod='Nearest', OverflowAction='Saturate', FullPrecision=True, quantize=True, iscpx=False, like=None)
 ```
 
 - `array`: *(`int`/`float`/`list`/`numpy.ndarray`/`numfi`)*, default:`[]`  
+    Create a numfi object based on `array`. `array` will be passed to `np.asarray`, so it can be any valid input for `np.asarray`.  
+    If `array` is a `numfi` object and `like` is not defined, `array` will be used as the template for `like`. See the `like` argument below for details.
 
-    Create a numfi object based on `array`. `array` will be passed to `np.asarray`, so it can be any valid input of `np.asarray`.  
-    If `array` is numfi object and `like` is not defined, will use `array` as template `like`
-
-- `s`: *any*, default:`1`  
-
-    signed or not, will be evaluate as a 0 for unsigned or 1 for signed
+- `s`: *`int`*, default:`1`  
+    `1` for signed, `0` for unsigned.
 
 - `w`: *`int`*, default:`16`  
-
-    bits of word, must be positive integer
+    bits of word, must be positive integer.
 
 - `f`: *`int`*, default:`None`  
-
-    bits of fraction. If `f=None`, `numfi` will use the maximal precision that fit `array`. (which means allocating as many bits as possible to fraction bits of entire word without overflow, this may lead to negative `f` and `i`).
-    Negative `f` and `i` are also supported like Matlab, see [fixed-point arithmetic](arithmetic.md) for details.
+    bits of fraction. If `f=None`, `numfi` will use the maximal precision that fit `array`. (which means allocating as many bits as possible to fraction bits of entire word without overflow, this may lead to negative `f` and `i`). Negative `f` and `i` are also supported, similar to Matlab. See [this](fixed_point.md) for details.
 
 - `RoundingMethod`: `str`, default:`'Nearest'`  
-
     How to round floating point value to integer, method name is same as Matlab's.
-
   - `'Nearest', 'Round', 'Convergent'`: use np.round(), round towards nearest integer
   - `'Floor'`: use np.floor(), round towards negative infinity  
   - `'Ceiling'`: use np.ceil(), round towards to positive infinity
@@ -37,77 +30,94 @@ numfi(array=[], s=1, w=16, f=None, RoundingMethod='Nearest', OverflowAction='Sat
 &nbsp;&nbsp;  
 
 - `OverflowAction`: `str`, default:`'Saturate'`  
-
     How to deal with overflow during quantization.
-
-  - `'Wrap'`: overflow/underflow will wrap to opposite side
+  - `'Wrap'`: overflow/underflow will wrap to opposite side, just like binary integer.
   - `'Saturate'`: overflow/underflow will saturate at max/min value possible
   - `'Error'`: raise OverflowError when overflow happens.
+  - `'warning'`: raise Warning when overflow happens.
+  - `'Ignore'`: ignore overflow/underflow, keep the value as is.
 &nbsp;&nbsp;  
 
-- `like`: `numfi / None`, default:`None`
+- `FullPrecision`: bool, default:`True`  
+    If `FullPrecision` is `False`, the word bits and fraction bits will not grow during fixed-point arithmetic. Otherwise, both will grow to maintain full result precision.  
+    For details see [fixed-point arithmetic](arithmetic.md)
 
-    create new numfi from template `like`. if both keywords arguments and template `like` are given, new argument will have following priority:   **keywords > template(like) > default**
+- `quantize`: bool, default:`True`  
+    If `quantize` is `False`, numfi will take the value of `array` "as is" without quantization, but will truncate bits that exceed `w`. i.e.: `numfi(123,1,8,4,quantize=False).int == 123`
 
-- `FullPrecision`: bool, default:`True`
+- `iscpx`: bool, default:`False`  
+    When `array` is not complex but `iscpx=True`, a zero imaginary part will be added. Otherwise `iscpx` is dependent on whether `array` is complex or not.
 
-    if `FullPrecision` is `False`, word bits and fraction bits will not grow during fixed-point arithmetic, otherwise both will grow to keep full result precision. For details see [fixed-point arithmetic](arithmetic.md)
+- `like`: `numfi / None`, default:`None`  
+    Create a new numfi object from the template `like`. If both keyword arguments and the template `like` are provided, the new arguments will have the following priority:  
+    **keywords > template(like) > default**.
 
-Example:  
+Initialize numfi example:
 
 ```python
 x = numfi(1)
-x = numfi([1,2,3],1,16,8)
-x = numfi(np.arange(100),0,22,11,RoundingMethod='Floor',OverflowAction='Saturate')
-y = numfi(np.zeros((3,3)),like=x)
+x = numfi([1, 2, 3], 1, 16, 8)
+x = numfi(np.arange(100), 0, 22, 11, RoundingMethod='Floor', OverflowAction='Saturate')
+y = numfi(np.zeros((3, 3)), like=x)
 ```
 
-## numfi class properties
+## numfi class properties  
 
-- `s, w, f, RoundingMethod, OverflowAction, FullPrecision`  
-Corresponding attributes in numfi object creation. See above for details.  
-*Note: these properties are read only, creat new numfi object with new properties if you need change them*
+*Note: these properties are read only, create new numfi object with new properties if you need change them*
 
-- `i`
-the integer bits of numfi object, `i = w - s - f`.
+- `s, w, f, RoundingMethod, OverflowAction, FullPrecision, iscpx`  
+    Corresponding attributes in numfi object creation. See above for details.  
+
+- `i`  
+    The integer bits of numfi object, `i = w - s - f`.
 
 - `ndarray`  
-the "raw" form of a numfi object, and the content stored in memory.
-*numfi.ndarray is a 'view' of itself with type numpy.ndarray*
+    The 'raw' form of a numfi object, which is what is actually stored in memory.
+    *numfi.ndarray is a 'view' of itself with type numpy.ndarray*
 
 - `int`  
-the integer representation of numfi object, a `numpy.ndarray` with `dtype=np.int64`
+    The integer representation of the numfi object, a `numpy.ndarray` with `dtype=np.int64`.
 
-- `double` / `data`
-the float representation of numfi object, a `numpy.ndarray` with `dtype=np.float64`.
-*numfi.int * numfi.precision = numfi.double*
+- `double` / `data`  
+    The floating-point representation of the `numfi` object, a `numpy.ndarray` with `dtype=np.float64`.  
+    *numfi.int * numfi.precision = numfi.double*
 
 - `bin` / `bin_`  
-the binary str representation('0' and '1') of numfi object, a `numpy.ndarray` with `dtype=str`,  
-`numpy.bin_` add additional radix point between integer and fraction bits, and 'x' for placeholder if needed(when `f < 0` or `i < 0`).
+    The binary string representation ('0' and '1') of the `numfi` object, a `numpy.ndarray` with `dtype=str`.  
+    `numpy.bin_` add additional radix point between integer and fraction bits, and 'x' for placeholder if needed(when `f < 0` or `i < 0`).
 
-- `hex`  / `oct` / `dec`
-the hex/oct/dec str representation of numfi object.
+- `hex`  / `oct` / `dec`  
+    The hex/oct/dec str representation of numfi object.
 
 - `upper` / `lower`  
-the upper / lower bound of numfi object based on currently word/fraction bits setting
+    The upper and lower bounds of the `numfi` object based on the current word and fraction bits settings: `upper = (2**i) - 2**-f`, `lower = -(2**i) if s is true, otherwise 0`.
 
 - `precision`  
-the smallest step of numfi object, equal to `2**-f`
+    The smallest step (1 in integer form) of the `numfi` object, equal to `2**-f`.
+
+- `Value`  
+    The string representation of the `numfi` object.
 
 ## numfi class method
 
 - `base_repr(self, base=2, frac_point=False)`  
-convert numfi's integer representation(numfi.int) to `base` string representation. `numfi.bin/bin_/hex/oct/dec` call this method
+    Convert numfi's integer representation(numfi.int) to `base` string representation. `numfi.bin/bin_/hex/oct/dec` call this method.
 
 ### Static Method
 
-- `do_rounding(iarray, RoundingMethod)`
-Round `iarray` to integer with various method, see `RoundingMethod` above.
-*`iarray` is equal to `float_array * 2**f`, means integer representation of `float_array`*
+- `do_rounding(iarray, RoundingMethod)`  
+    Round `iarray` to integer with various method, see `RoundingMethod` above.  
+    *`iarray` is integer representation of `array`, equals to `array * 2**f`*
 
-- `do_overflow(iarray, s, w, f, OverflowAction)`
-Do `OverflowAction` if `iarray` overflow, see `OverflowAction` above.
+- `do_overflow(iarray, s, w, f, OverflowAction)`  
+    Do `OverflowAction` if `iarray` overflow, see `OverflowAction` above.  
 
-- `get_best_precision(x, s, w)`
-Find maximal fraction bits for given data `x` with certain bit width `s` and `w`.
+- `get_best_precision(x, s, w)`  
+    Find maximal fraction bits for given data `x` with certain bit width `s` and `w`.  
+
+- `quantize(array, s, w, f, RoundingMethod, OverflowAction, quantize=True)`  
+    Main function of numfi to quantize float array to fixed-point integer array with arguments mentioned above. Call `do_rounding` and `do_overflow` inside.  
+
+## class numqi
+
+There is another class `numqi` which is similar to `numfi`, the only difference is, `numqi` store fixed-point integer in memory, but `numfi` store its float-point number. Everything else is the same.

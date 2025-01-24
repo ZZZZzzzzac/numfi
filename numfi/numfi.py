@@ -1,19 +1,23 @@
 import numpy as np
 from typing import Literal
+import warnings
 type RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zero','Ceiling']
 type OverflowAction_Enum = Literal['Error','Wrap','Saturate']
 
 class numfi_tmp(np.ndarray):
-    def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, quantize:bool=True, **kwargs) -> 'numfi_tmp':
+    def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, **kwargs) -> 'numfi_tmp':
         # priority: explicit like > array
         like = kwargs.get('like', array)
+        if issubclass(type(array),numfi_tmp):
+            array = array.double
         # priority: explicit args > like.attr > default(1,32,16,'Nearest',Saturate,False)
         s = round(s) if isinstance(s, (int, float, np.integer, np.floating)) else getattr(like, 's', 1)
         w = round(w) if isinstance(w, (int, float, np.integer, np.floating)) else getattr(like, 'w', 16)
         f = round(f) if isinstance(f, (int, float, np.integer, np.floating)) else getattr(like, 'f', numfi_tmp.get_best_precision(array,s,w))
-        RoundingMethod =     kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest'))
-        OverflowAction =     kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate'))
+        RoundingMethod = str(kwargs.get('RoundingMethod',getattr(like, 'RoundingMethod', 'Nearest')))
+        OverflowAction = str(kwargs.get('OverflowAction',getattr(like, 'OverflowAction', 'Saturate')))
         FullPrecision = bool(kwargs.get('FullPrecision', getattr(like, 'FullPrecision',  True)))
+        quantize =      bool(kwargs.get('quantize',      getattr(like, 'quantize',       True)))
         iscpx =         bool(kwargs.get('iscpx',         getattr(like, 'iscpx',          False)))
         assert w > 0, f"w must be positive integer, but get {w}"
 
@@ -21,10 +25,10 @@ class numfi_tmp(np.ndarray):
         if np.iscomplexobj(array):
             iscpx = True
         if iscpx:
-            iarray = cls.__quantize__(array.real, s, w, f, RoundingMethod, OverflowAction, quantize) + \
-                1j * cls.__quantize__(array.imag, s, w, f, RoundingMethod, OverflowAction, quantize)
+            iarray = cls.quantize(array.real, s, w, f, RoundingMethod, OverflowAction, quantize) + \
+                1j * cls.quantize(array.imag, s, w, f, RoundingMethod, OverflowAction, quantize)
         else:
-            iarray = cls.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
+            iarray = cls.quantize(array,      s, w, f, RoundingMethod, OverflowAction, quantize)
         obj = iarray.view(cls)
         obj._s, obj._w, obj._f = s, w, f
         obj._RoundingMethod = RoundingMethod
@@ -34,9 +38,9 @@ class numfi_tmp(np.ndarray):
         return obj
 
     @staticmethod
-    def __quantize__(array:np.ndarray, s:int, w:int, f:int,
-                     RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:        
+    def quantize(array:np.ndarray, s:int, w:int, f:int,
+                RoundingMethod:RoundingMethod_Enum,
+                OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:        
         if np.shape(array) == ():
             array = np.reshape(array,(1,)) # scalar to 1d array
         if isinstance(array, numfi_tmp):
@@ -134,19 +138,22 @@ class numfi_tmp(np.ndarray):
         lower = -(1<<(w-s)) if s else 0
         up =  iarray > upper
         low = iarray < lower
-        if OverflowAction == 'Error':
-            if np.any(up | low):
-                raise OverflowError(f"Overflow! array[{iarray.min()} ~ {iarray.max()}] > fi({s},{w},{f})[{lower} ~ {upper}]")
-        elif OverflowAction == 'Wrap':
-            mask = (1<<w)
-            iarray &= (mask-1)
-            if s:
-                iarray[iarray>=(1<<(w-1))] |= (-mask)
-        elif OverflowAction == 'Saturate':
-            iarray[up] = upper
-            iarray[low] = lower
-        else:
-            raise ValueError(f"invaild OverflowAction: {OverflowAction}")
+        if np.any(up | low) and OverflowAction != 'Ignore':
+            msg = f"Overflow! array[{iarray.min()} ~ {iarray.max()}] > fi({s},{w},{f})[{lower} ~ {upper}]"
+            if OverflowAction == 'Error':
+                raise OverflowError(msg)
+            elif OverflowAction == 'warning':
+                warnings.warn(msg, RuntimeWarning)
+            elif OverflowAction == 'Wrap':
+                mask = (1<<w)
+                iarray &= (mask-1)
+                if s:
+                    iarray[iarray>=(1<<(w-1))] |= (-mask)
+            elif OverflowAction == 'Saturate':
+                iarray[up] = upper
+                iarray[low] = lower
+            else:
+                raise ValueError(f"invaild OverflowAction: {OverflowAction}")
         return iarray
 
     @staticmethod
@@ -170,15 +177,11 @@ class numfi_tmp(np.ndarray):
     def base_repr(self, base:int=2, frac_point:bool=False) -> np.ndarray: # return ndarray with same shape and dtype = '<Uw' where w=self.w
         if base == 2:
             def pretty_bin(i):
-                s = ''
                 b = np.binary_repr(i,width=self.w)
-                if self.s:
-                    s = f'{b[0]}'
-                    b = b[1:]
-                if self.i >= 0:
-                    return s + b[:self.i].ljust(self.i,'x') + '.' + b[self.i:]
-                else:
-                    return s + '.' + b.rjust(self.f,'x')
+                l = self.w - self.f
+                if l < 0:
+                    return '.'+b.rjust(self.f,'x')
+                return b[:l].ljust(l,'x') + '.' + b[l:]
             func = pretty_bin if frac_point else lambda i: np.binary_repr(i,self.w)
         else:
             def func(i):
@@ -195,20 +198,20 @@ class numfi_tmp(np.ndarray):
     f:int                               = property(lambda self: self._f)
     i:int                               = property(lambda self: self.w - self.f - self.s)
     FullPrecision:bool                  = property(lambda self: self._FullPrecision)
-    precision:float                     = property(lambda self: 2**-self.f)
+    RoundingMethod:RoundingMethod_Enum  = property(lambda self: self._RoundingMethod)
+    OverflowAction:OverflowAction_Enum  = property(lambda self: self._OverflowAction)
+    iscpx                               = property(lambda self: self._iscpx)
+    ndarray:np.ndarray                  = property(lambda self: self.view(np.ndarray))
+    data:np.ndarray                     = property(lambda self: self.double)
     bin:np.ndarray                      = property(lambda self: self.base_repr(2))
     bin_:np.ndarray                     = property(lambda self: self.base_repr(2,frac_point=True))
     oct:np.ndarray                      = property(lambda self: self.base_repr(8))
     dec:np.ndarray                      = property(lambda self: self.base_repr(10))
     hex:np.ndarray                      = property(lambda self: self.base_repr(16))
-    data:np.ndarray                     = property(lambda self: self.double)
-    Value:str                           = property(lambda self: str(self.double))
     upper:float                         = property(lambda self:  (2**self.i) - self.precision)
     lower:float                         = property(lambda self: -(2**self.i) if self.s else 0)
-    ndarray:np.ndarray                  = property(lambda self: self.view(np.ndarray))
-    RoundingMethod:RoundingMethod_Enum  = property(lambda self: self._RoundingMethod)
-    OverflowAction:OverflowAction_Enum  = property(lambda self: self._OverflowAction)
-    iscpx                               = property(lambda self: self._iscpx)
+    precision:float                     = property(lambda self: 2**-self.f)
+    Value:str                           = property(lambda self: str(self.double))
 
     @property
     def int(self) -> np.ndarray:
@@ -248,14 +251,13 @@ class numfi_tmp(np.ndarray):
     __le__          = lambda self,y: self.double <= y
     __lt__          = lambda self,y: self.double <  y
 
-
 class numfi(numfi_tmp):
     """fixed point class that holds float in memory"""
     @staticmethod
-    def __quantize__(array:np.ndarray, s:int, w:int, f:int,
-                     RoundingMethod:RoundingMethod_Enum,
-                     OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
-        array_int = numfi_tmp.__quantize__(array, s, w, f, RoundingMethod, OverflowAction, quantize)
+    def quantize(array:np.ndarray, s:int, w:int, f:int,
+                RoundingMethod:RoundingMethod_Enum,
+                OverflowAction:OverflowAction_Enum, quantize:bool=True) -> np.ndarray:
+        array_int = numfi_tmp.quantize(array, s, w, f, RoundingMethod, OverflowAction, quantize)
         return array_int * (2**-f)
 
     @property
@@ -307,6 +309,12 @@ class numqi(numfi_tmp):
             return (self.ndarray * self.precision).view(np.complex128)
         return self.ndarray * self.precision
 
+    def __getitem__(self, key):
+        v = super(numfi_tmp,self).__getitem__(key)
+        if issubclass(type(v),numfi_tmp):
+            return v
+        return type(self)(v, quantize=False, like=self) # return scalar as numfi
+
     def __fixed_arithmetic__(self, func, y):
         s, w, f, i = self.s, self.w, self.f, self.i
         name = func.__name__[-5:-2] # last 3 words of operator name
@@ -314,11 +322,12 @@ class numqi(numfi_tmp):
         quantize = False
         if name == 'add' or name == 'sub':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y,like=self)
-            f = max(f, y_fi.f)
-            w = max(i, y_fi.i) + f + s + (1 if (s==y_fi.s) else 2)
-            a = (self.int * 2**(f-self.f))
-            b = (y_fi.int * 2**(f-y_fi.f))
-            result = func(a, b)
+            if self.FullPrecision:
+                f = max(f, y_fi.f)
+                i = max(i, y_fi.i)
+                w = i + f + s + (1 if (s==y_fi.s) else 2)
+            c = func(self.int << (f-self.f), y_fi.int << (f-y_fi.f))
+            return type(self)(c, s, w, f, like=self, quantize=False)
         elif name == 'mul':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
             w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
