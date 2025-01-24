@@ -4,6 +4,9 @@ import warnings
 type RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zero','Ceiling']
 type OverflowAction_Enum = Literal['Error','Wrap','Saturate']
 
+def lshift(x, s):
+    return x << s if s >= 0 else x >> -s
+
 class numfi_tmp(np.ndarray):
     def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, **kwargs) -> 'numfi_tmp':
         # priority: explicit like > array
@@ -316,36 +319,34 @@ class numqi(numfi_tmp):
         return type(self)(v, quantize=False, like=self) # return scalar as numfi
 
     def __fixed_arithmetic__(self, func, y):
-        s, w, f, i = self.s, self.w, self.f, self.i
+        s, w, f = self.s, self.w, self.f
         name = func.__name__[-5:-2] # last 3 words of operator name
         in_place = func.__name__[2] == 'i' # __ixxx__ are in place operation, like +=,-=,*=,/=
-        quantize = False
         if name == 'add' or name == 'sub':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y,like=self)
             if self.FullPrecision:
+                w = max(w - f, y_fi.w - y_fi.f) + (1 + (s ^ y_fi.s)) + max(f, y_fi.f)
                 f = max(f, y_fi.f)
-                i = max(i, y_fi.i)
-                w = i + f + s + (1 if (s==y_fi.s) else 2)
-            c = func(self.int << (f-self.f), y_fi.int << (f-y_fi.f))
-            return type(self)(c, s, w, f, like=self, quantize=False)
+            s = max(s, y_fi.s) 
+            result = func(self.int << (f-self.f), lshift(y_fi.int,f-y_fi.f))
+            return type(self)(result, s, w, f, like=self, quantize=False)
         elif name == 'mul':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
-            w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
-            f = self.f + y_fi.f
-            result = func(self.int, y_fi.int)
+            s = max(s, y_fi.s)
+            if self.FullPrecision:
+                w = self.w + y_fi.w + (1 if func.__name__ == '__matmul__' else 0)
+                f = self.f + y_fi.f
+                result = func(self.int, y_fi.int)
+                return type(self)(result, s, w, f, like=self, quantize=False)
+            result = func(self.int, y_fi.int) >> y_fi.f
+            return type(self)(result, s, w, f, like=self, quantize=False)
         elif name == 'div':
             y_fi = y if isinstance(y, numfi_tmp) else type(self)(y, s, w)
-            if isinstance(y, numfi_tmp):
+            s = max(s, y_fi.s) 
+            if self.FullPrecision:
                 w = max(self.w, y_fi.w)
                 f = self.f - y_fi.f
+                result = np.round(func(self.int, y_fi.int)).astype(np.int64)
+                return type(self)(result, s, w, f, like=self, quantize=False)
             result = func(self.double, y_fi.double)
-            quantize = True
-
-        # note that quantization is not needed for full precision mode, new w/f is larger so no precision lost or overflow
-        if not (self.FullPrecision or in_place): # if operator is in-place, bits won't grow
-            return type(self)(result, like=self, quantize=quantize) # if fixed, quantize full precision result to shorter length
-        elif isinstance(y,numfi_tmp) and not y.FullPrecision:
-            return type(self)(result, like=y, quantize=quantize)
-        else:
-            return type(self)(result, s, w, f, like=self, quantize=quantize)
-
+            return type(self)(result, s, w, f, like=self)
