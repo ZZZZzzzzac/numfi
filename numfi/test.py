@@ -1,19 +1,20 @@
 import unittest
 import numpy as np
-from numfi import numqi as fi   # change numfi to numqi to test numqi
+from numfi import numfi as fi   # change numfi to numqi to test numqi
 # TODO: add more test
+pi = np.pi
 class fiTest(unittest.TestCase):
     def test_create_fi(self):        
-        fi(np.pi)
-        fi([np.pi])
-        fi([np.pi,-np.pi])
-        fi(np.array([np.pi,np.pi]))
-        fi(np.float32(np.pi))
+        fi(pi)
+        fi([pi])
+        fi([pi,-pi])
+        fi(np.array([pi,pi]))
+        fi(np.float32(pi))
         fi(666)
         fi(fi([1,2,3,4.5]))
 
     def test_swf(self):
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 8)
@@ -33,7 +34,7 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 11)
 
-        x = fi(np.pi)
+        x = fi(pi)
         self.assertEqual(x.s, 1)
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 13)
@@ -73,7 +74,7 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x.w, 16)
         self.assertEqual(x.f, 18)
 
-        self.assertRaises(AssertionError, lambda:fi(np.pi,1,0,0)) # fi.w <=0
+        self.assertRaises(AssertionError, lambda:fi(pi,1,0,0)) # fi.w <=0
 
     def test_negtive_f_i(self):
         x = fi(0.0547,0,8,10)
@@ -109,7 +110,7 @@ class fiTest(unittest.TestCase):
         self.assertEqual(y.FullPrecision, T.FullPrecision)
 
     def test_kwargs(self):
-        x = fi(np.pi,1,16,8,RoundingMethod='Floor',OverflowAction='Wrap',FullPrecision=True)
+        x = fi(pi,1,16,8,RoundingMethod='Floor',OverflowAction='Wrap',FullPrecision=True)
         self.assertEqual(x.RoundingMethod, 'Floor')
         self.assertEqual(x.OverflowAction, 'Wrap')
         self.assertEqual(x.FullPrecision, True)
@@ -123,10 +124,10 @@ class fiTest(unittest.TestCase):
         self.assertEqual(y.FullPrecision, x.FullPrecision)
 
     def test_quantize(self):
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         self.assertEqual(x, 3.140625000000000)
         self.assertEqual(x.bin, '0000001100100100')        
-        x = fi(np.pi,0,8,4)
+        x = fi(pi,0,8,4)
         self.assertEqual(x, 3.125000000000000)
         self.assertEqual(x.bin, '00110010')
         x = fi(1.234567890,1,14,11)
@@ -287,7 +288,7 @@ class fiTest(unittest.TestCase):
             self.assertEqual(z.f, f)
             self.assertTrue(np.all(z.int==integer))
     
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,1,24,8),1,25,8,830)
         check(x, fi(0.1,1,24,4),1,29,8,836)
         check(x, fi(0.1,1,24,12),1,25,12,13274)
@@ -298,7 +299,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,17,8,836)
         check(x, fi(0.1,1,8,12),1,21,12,12991)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,1,24,8),1,26,8,830)
         check(x, fi(0.1,1,24,4),1,30,8,836)
         check(x, fi(0.1,1,24,12),1,26,12,13274)
@@ -309,7 +310,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,18,8,836)
         check(x, fi(0.1,1,8,12),1,22,12,12991)
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,0,24,8),1,26, 8,830)
         check(x, fi(0.1,0,24,4),1,30, 8,836)
         check(x, fi(0.1,0,24,12),1,26,12,13274)
@@ -320,7 +321,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),1,18, 8,836)
         check(x, fi(0.1,0,8,12),1,22,12,13119)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,0,24,8),0,25, 8,830)
         check(x, fi(0.1,0,24,4),0,29, 8,836)
         check(x, fi(0.1,0,24,12),0,25,12,13274)
@@ -331,7 +332,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),0,17, 8,836)
         check(x, fi(0.1,0,8,12),0,21,12,13119)
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, 4, 1,17, 8,1828)
         check(x, [4], 1,17, 8,1828)
         check(x, np.int64(4), 1,17, 8,1828)
@@ -345,7 +346,7 @@ class fiTest(unittest.TestCase):
             self.assertEqual(z.f, f)
             self.assertTrue(np.all(z.int==integer))
     
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,1,24,8),1,25, 8,778)
         check(x, fi(0.1,1,24,4),1,29, 8,772)
         check(x, fi(0.1,1,24,12),1,25,12,12454)
@@ -356,7 +357,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,17, 8,772)
         check(x, fi(0.1,1,8,12),1,21,12,12737)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,1,24,8),1,26, 8,778)
         check(x, fi(0.1,1,24,4),1,30, 8,772)
         check(x, fi(0.1,1,24,12),1,26,12,12454)
@@ -367,7 +368,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,18, 8,772)
         check(x, fi(0.1,1,8,12),1,22,12,12737)
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,0,24,8),1,26, 8,778)
         check(x, fi(0.1,0,24,4),1,30, 8,772)
         check(x, fi(0.1,0,24,12),1,26,12,12454)
@@ -378,7 +379,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),1,18, 8,772)
         check(x, fi(0.1,0,8,12),1,22,12,12609)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,0,24,8),0,25, 8,778)
         check(x, fi(0.1,0,24,4),0,29, 8,772)
         check(x, fi(0.1,0,24,12),0,25,12,12454)
@@ -389,7 +390,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),0,17, 8,772)
         check(x, fi(0.1,0,8,12),0,21,12,12609)
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, 4, 1,17, 8,-220)
         check(x, [4], 1,17, 8,-220)
         check(x, np.int64(4), 1,17, 8,-220)
@@ -397,7 +398,7 @@ class fiTest(unittest.TestCase):
 
     def test_not_FullPrecision(self):
         x = fi([1,2,3,4],1,16,8,FullPrecision=False)
-        y = fi([2,3,4,5],1,17,9,FullPrecision=False)
+        y = fi([2,3,4,5],0,32,4,FullPrecision=False)
         z = fi(0,1,12,4)
 
         x1 = x+1
@@ -406,9 +407,9 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x1.f, x.f)
 
         xy = x+y
-        self.assertEqual(xy.s, x.s)
-        self.assertEqual(xy.w, x.w)
-        self.assertEqual(xy.f, x.f)
+        self.assertEqual(xy.s, max(x.s,y.s))
+        self.assertEqual(xy.w, max(x.w,y.w))
+        self.assertEqual(xy.f, max(x.f,y.f))
 
         y1 = 1+y
         self.assertEqual(y1.s, y.s)
@@ -416,14 +417,19 @@ class fiTest(unittest.TestCase):
         self.assertEqual(y1.f, y.f)
 
         xz = x-z 
-        self.assertEqual(xz.s, x.s)
-        self.assertEqual(xz.w, x.w)
-        self.assertEqual(xz.f, x.f)
+        self.assertEqual(xz.s, max(x.s,z.s))
+        self.assertEqual(xz.w, max(x.w,z.w))
+        self.assertEqual(xz.f, max(x.f,z.f))
+
+        zx = z+x
+        self.assertEqual(zx.s, max(x.s,z.s))
+        self.assertEqual(zx.w, max(x.w,z.w))
+        self.assertEqual(zx.f, max(x.f,z.f))
 
         xy = x*y
-        self.assertEqual(xy.s, x.s)
-        self.assertEqual(xy.w, x.w)
-        self.assertEqual(xy.f, x.f)
+        self.assertEqual(xy.s, max(x.s,y.s))
+        self.assertEqual(xy.w, max(x.w,y.w))
+        self.assertEqual(xy.f, max(x.f,y.f))
 
         y1 = 1/y
         self.assertEqual(y1.s, y.s)
@@ -438,7 +444,7 @@ class fiTest(unittest.TestCase):
             self.assertEqual(z.f, f)
             self.assertTrue(np.all(z.int==integer))
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,1,24,8),1,40,16,20904)
         check(x, fi(0.1,1,24,4),1,40,12,1608)
         check(x, fi(0.1,1,24,12),1,40,20,329640)
@@ -448,8 +454,9 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,8),1,24,16,20904)
         check(x, fi(0.1,1,8,4),1,24,12,1608)
         check(x, fi(0.1,1,8,12),1,24,20,102108)
+        
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,0,24,8),1,40,16,20904)
         check(x, fi(0.1,0,24,4),1,40,12,1608)
         check(x, fi(0.1,0,24,12),1,40,20,329640)
@@ -461,7 +468,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,12),1,24,20,205020)
 
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,1,24,8),1,40,16,20904)
         check(x, fi(0.1,1,24,4),1,40,12,1608)
         check(x, fi(0.1,1,24,12),1,40,20,329640)
@@ -472,7 +479,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,24,12,1608)
         check(x, fi(0.1,1,8,12),1,24,20,102108)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,0,24,8),0,40,16,20904)
         check(x, fi(0.1,0,24,4),0,40,12,1608)
         check(x, fi(0.1,0,24,12),0,40,20,329640)
@@ -483,6 +490,10 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),0,24,12,1608)
         check(x, fi(0.1,0,8,12),0,24,20,205020)
 
+        x = fi(pi, 1, 18, 4)
+        check(x, 0.3, 1, 36, 22, 3932150)
+        check(x, -0.3, 1, 36, 22, -3932150)
+
     def test_div(self):
         def check(x, y, s, w, f, integer):
             z = x / y
@@ -491,7 +502,7 @@ class fiTest(unittest.TestCase):
             self.assertEqual(z.f, f)
             self.assertTrue(np.all(z.int==integer))
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,1,24,8),1,24, 0,31)
         check(x, fi(0.1,1,24,4),1,24, 4,402)
         check(x, fi(0.1,1,24,12),1,24,-4,2)
@@ -502,7 +513,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,16, 4,402)
         check(x, fi(0.1,1,8,12),1,16,-4,6)
 
-        x = fi(np.pi,1,16,8)
+        x = fi(pi,1,16,8)
         check(x, fi(0.1,0,24,8),1,24, 0,31)
         check(x, fi(0.1,0,24,4),1,24, 4,402)
         check(x, fi(0.1,0,24,12),1,24,-4,2)
@@ -513,7 +524,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),1,16, 4,402)
         check(x, fi(0.1,0,8,12),1,16,-4,3)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,1,24,8),1,24, 0,31)
         check(x, fi(0.1,1,24,4),1,24, 4,402)
         check(x, fi(0.1,1,24,12),1,24,-4,2)
@@ -524,7 +535,7 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,1,8,4),1,16, 4,402)
         check(x, fi(0.1,1,8,12),1,16,-4,6)
 
-        x = fi(np.pi,0,16,8)
+        x = fi(pi,0,16,8)
         check(x, fi(0.1,0,24,8),0,24, 0,31)
         check(x, fi(0.1,0,24,4),0,24, 4,402)
         check(x, fi(0.1,0,24,12),0,24,-4,2)
@@ -535,6 +546,10 @@ class fiTest(unittest.TestCase):
         check(x, fi(0.1,0,8,4),0,16, 4,402)
         check(x, fi(0.1,0,8,12),0,16,-4,3)
 
+        x = fi(pi, 1, 18, 4)
+        check(x, 0.3, 1, 18, 4, 167)
+        check(x, -0.3, 1, 18, 4, -167)
+
     def test_iop(self):
         x = fi(1.12345,1,16,7)
         x += 0.5231
@@ -542,13 +557,13 @@ class fiTest(unittest.TestCase):
         self.assertEqual(x.w,17)
         self.assertEqual(x.f,7)
 
-    # def test_fixed_M(self):
-    #     q = [0.814723686393179,0.905791937075619,0.126986816293506]
-    #     a = fi(q,1,16,8,FullPrecision=True)
-    #     a3 = a / 0.3333
-    #     self.assertTrue(np.all(a3==[2.449218750000000 ,  2.718750000000000 ,  0.386718750000000]))
-    #     self.assertEqual(a3.w,16)
-    #     self.assertEqual(a3.f,8)
+    def test_fixed_M(self):
+        q = [0.814723686393179,0.905791937075619,0.126986816293506]
+        a = fi(q,1,16,8,FullPrecision=True)
+        a3 = a / 0.3333
+        self.assertTrue(np.all(a3.int==[627,   696,    99]))
+        self.assertEqual(a3.w,16)
+        self.assertEqual(a3.f,8)
         
     def test_neg(self):
         x = fi([1,2,3],1,16,8)
@@ -607,7 +622,7 @@ class fiTest(unittest.TestCase):
         self.assertTrue(np.all((x<1)==[True,True,True,False,False]))
 
     def test_ufunc(self):
-        x = np.array([0,np.pi/2,np.pi,3*np.pi/2,2*np.pi])/100
+        x = np.array([0,pi/2,pi,3*pi/2,2*pi])/100
         y = fi(x,1,16,9)
         z = y[0]
         a = np.cos(x)
