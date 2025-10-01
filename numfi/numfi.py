@@ -1,8 +1,8 @@
 import numpy as np
 from typing import Literal
 import warnings
-type RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zero','Ceiling']
-type OverflowAction_Enum = Literal['Error','Wrap','Saturate']
+RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zero','Ceiling']
+OverflowAction_Enum = Literal['Error','Wrap','Saturate']
 
 def lshift(x, s):
     return x << s if s >= 0 else x >> -s
