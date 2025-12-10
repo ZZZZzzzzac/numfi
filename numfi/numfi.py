@@ -1,6 +1,17 @@
 import numpy as np
-from typing import Literal
+from typing import Union, Optional, Any
 import warnings
+
+try:
+    from typing import Literal
+except ImportError:
+    # Fallback for Python < 3.8
+    class _LiteralMeta(type):
+        def __getitem__(cls, x):
+            return Any
+    class Literal(metaclass=_LiteralMeta):
+        pass
+
 RoundingMethod_Enum = Literal['Nearest', 'Round', 'Convergent','Floor','Zero','Ceiling']
 OverflowAction_Enum = Literal['Error','Wrap','Saturate']
 
@@ -8,7 +19,7 @@ def lshift(x, s):
     return x << s if s >= 0 else x >> -s
 
 class numfi(np.ndarray):
-    def __new__(cls, array=[], s:int|None|bool=None, w:int|None=None, f:int|None=None, **kwargs) -> 'numfi':
+    def __new__(cls, array=[], s:Union[int, None, bool]=None, w:Optional[int]=None, f:Optional[int]=None, **kwargs) -> 'numfi':
         # priority: explicit like > array
         like = kwargs.get('like', array)
         if issubclass(type(array),numfi):
